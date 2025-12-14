@@ -3,6 +3,7 @@ from django.db import models
 from accounts.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
+from django.db import transaction, IntegrityError
 
 AREA_CHOICES = [
     ('AI', 'Artificial Intelligence'),
@@ -164,16 +165,33 @@ class Paper(models.Model):
         pass
 
     def save(self, *args, **kwargs):
-        if not self.paper_id:
-            acronym = (self.conference.acronym or 'CONF').upper()
-            year = self.conference.start_date.year if self.conference.start_date else 0
-            yy = str(year)[-2:] if year else 'XX'
-            serial = Paper.objects.filter(
-                conference=self.conference,
-                submitted_at__year=year
-            ).count() + 1
-            self.paper_id = f"{acronym}{yy}{serial:02d}"
-        super().save(*args, **kwargs)
+        if self.paper_id:
+            return super().save(*args, **kwargs)
+    
+        acronym = (self.conference.acronym or 'CONF').upper()
+        year = self.conference.start_date.year if self.conference.start_date else 0
+        yy = str(year)[-2:] if year else 'XX'
+    
+        for _ in range(5):
+            with transaction.atomic():
+                last = (
+                    Paper.objects
+                    .select_for_update()
+                    .filter(conference=self.conference, paper_id__startswith=f"{acronym}{yy}")
+                    .order_by('-paper_id')
+                    .first()
+                )
+    
+                serial = int(last.paper_id[-2:]) + 1 if last else 1
+                self.paper_id = f"{acronym}{yy}{serial:02d}"
+    
+                try:
+                    return super().save(*args, **kwargs)
+                except IntegrityError:
+                    self.paper_id = None
+    
+        raise IntegrityError("Unable to generate unique paper_id")
+
 
 class Review(models.Model):
     paper = models.ForeignKey(Paper, on_delete=models.CASCADE, related_name='reviews')
