@@ -262,7 +262,8 @@ def submit_paper(request, conference_id):
             if corresponding_author:
                 send_paper_submission_emails(paper, conference, corresponding_author)
             messages.success(request, 'Paper submitted successfully!')
-            return redirect('dashboard:dashboard')
+            #return redirect('dashboard:dashboard')
+            return redirect('conference:author_papers_view', conference_id=conference.id)
     else:
         form = PaperSubmissionForm(conference=conference)
     return render(request, 'conference/submit_paper.html', {'form': form, 'conference': conference})
