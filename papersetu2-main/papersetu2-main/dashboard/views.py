@@ -43,6 +43,12 @@ from django.utils.encoding import smart_str
 from conference.models import Conference, UserConferenceRole
 import csv
 from accounts.decorators import verified_user_required
+import requests
+from django.http import HttpResponse
+from django.utils.text import slugify
+from conference.models import Conference, Paper
+
+
 
 class PCSendEmailForm(forms.Form):
     RECIPIENT_TYPE_CHOICES = [
@@ -3557,19 +3563,37 @@ def delete_submissions_table(request, conf_id):
 def download_submissions(request, conf_id):
     conference = Conference.objects.get(id=conf_id)
     papers = Paper.objects.filter(conference=conference)
-    # Create a zip in memory
+
     zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
+
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         for paper in papers:
-            if paper.file:
-                filename = f"{slugify(paper.title)}_{paper.id}{os.path.splitext(paper.file.name)[-1]}"
-                file_path = paper.file.path
-                if os.path.exists(file_path):
-                    with open(file_path, 'rb') as f:
-                        zip_file.writestr(filename, f.read())
+            if not paper.file:
+                continue
+
+            try:
+                file_url = paper.file.url
+                response = requests.get(file_url, timeout=15)
+
+                if response.status_code == 200:
+                    ext = ".pdf"
+                    if "." in paper.file.public_id:
+                        ext = ""
+
+                    filename = f"{slugify(paper.title)}_{paper.id}{ext}"
+                    zip_file.writestr(filename, response.content)
+
+            except Exception as e:
+                # Optional: log error instead of crashing
+                print(f"Failed to add paper {paper.id}: {e}")
+
     zip_buffer.seek(0)
+
     response = HttpResponse(zip_buffer, content_type='application/zip')
-    response['Content-Disposition'] = f'attachment; filename="{slugify(conference.name)}_submissions.zip"'
+    response['Content-Disposition'] = (
+        f'attachment; filename="{slugify(conference.name)}_submissions.zip"'
+    )
+
     return response
 
 @login_required
