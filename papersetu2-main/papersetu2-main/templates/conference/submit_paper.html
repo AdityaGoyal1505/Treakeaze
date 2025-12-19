@@ -38,5 +38,12 @@
             <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Submit Paper</button>
         </form>
     </div>
+    {% if messages %}
+        {% for message in messages %}
+            <script>
+                alert("{{ message|escapejs }}");
+            </script>
+        {% endfor %}
+    {% endif %}
 </body>
 </html> 
