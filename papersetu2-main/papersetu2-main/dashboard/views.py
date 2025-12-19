@@ -3571,11 +3571,13 @@ def download_submissions(request, conf_id):
                 continue
 
             try:
-                # 🔐 SIGNED Cloudinary URL (THIS IS THE KEY)
+                # ✅ paper.file.name IS the Cloudinary public_id
+                public_id = paper.file.name
+
                 file_url, _ = cloudinary_url(
-                    paper.file.public_id,
+                    public_id,
                     resource_type="raw",
-                    sign_url=True,
+                    sign_url=True,   # required for private/authenticated files
                 )
 
                 response = requests.get(file_url, timeout=30)
@@ -3584,7 +3586,7 @@ def download_submissions(request, conf_id):
                     filename = f"{slugify(paper.title)}_{paper.id}.pdf"
                     zip_file.writestr(filename, response.content)
                 else:
-                    print("Skipped:", response.status_code, file_url)
+                    print("Skipped:", paper.id, response.status_code)
 
             except Exception as e:
                 print(f"Error with paper {paper.id}: {e}")
