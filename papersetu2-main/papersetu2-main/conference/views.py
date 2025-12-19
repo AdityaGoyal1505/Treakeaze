@@ -17,7 +17,7 @@ from conference.models import Review
 from django.core.mail import EmailMessage
 from django.conf import settings
 from .models import Author
-
+from django.db import transaction
 import stripe
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt
