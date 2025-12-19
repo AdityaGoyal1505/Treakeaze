@@ -46,8 +46,7 @@ from accounts.decorators import verified_user_required
 import requests
 from django.http import HttpResponse
 from django.utils.text import slugify
-from conference.models import Conference, Paper
-
+from cloudinary.utils import cloudinary_url
 
 
 class PCSendEmailForm(forms.Form):
@@ -3566,31 +3565,32 @@ def download_submissions(request, conf_id):
 
     zip_buffer = BytesIO()
 
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
         for paper in papers:
             if not paper.file:
                 continue
 
             try:
-                file_url = paper.file.url
-                response = requests.get(file_url, timeout=15)
+                # ✅ Generate correct Cloudinary RAW URL
+                file_url, _ = cloudinary_url(
+                    paper.file.public_id,
+                    resource_type="raw",
+                    flags="attachment",   # force download
+                )
 
-                if response.status_code == 200:
-                    ext = ".pdf"
-                    if "." in paper.file.public_id:
-                        ext = ""
+                response = requests.get(file_url, timeout=20)
 
-                    filename = f"{slugify(paper.title)}_{paper.id}{ext}"
+                if response.ok and response.content:
+                    filename = f"{slugify(paper.title)}_{paper.id}.pdf"
                     zip_file.writestr(filename, response.content)
 
             except Exception as e:
-                # Optional: log error instead of crashing
-                print(f"Failed to add paper {paper.id}: {e}")
+                print(f"Skipping paper {paper.id}: {e}")
 
     zip_buffer.seek(0)
 
-    response = HttpResponse(zip_buffer, content_type='application/zip')
-    response['Content-Disposition'] = (
+    response = HttpResponse(zip_buffer, content_type="application/zip")
+    response["Content-Disposition"] = (
         f'attachment; filename="{slugify(conference.name)}_submissions.zip"'
     )
 
