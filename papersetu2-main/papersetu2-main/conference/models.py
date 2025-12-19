@@ -4,7 +4,7 @@ from accounts.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db import transaction, IntegrityError
-
+from cloudinary_storage.storage import RawMediaCloudinaryStorage
 AREA_CHOICES = [
     ('AI', 'Artificial Intelligence'),
     ('ML', 'Machine Learning'),
@@ -133,7 +133,10 @@ class Track(models.Model):
 class Paper(models.Model):
     title = models.CharField(max_length=255)
     abstract = models.TextField()
-    file = models.FileField(upload_to='papers/')
+    file = models.FileField(
+        storage=RawMediaCloudinaryStorage(),
+        upload_to='papers/',
+    )
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='papers')
     conference = models.ForeignKey(Conference, on_delete=models.CASCADE, related_name='papers')
     submitted_at = models.DateTimeField(auto_now_add=True)
