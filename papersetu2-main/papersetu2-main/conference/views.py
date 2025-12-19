@@ -248,25 +248,78 @@ def reviewer_volunteer(request):
 @login_required
 def submit_paper(request, conference_id):
     conference = get_object_or_404(Conference, id=conference_id)
+
     if request.method == 'POST':
-        form = PaperSubmissionForm(request.POST, request.FILES, conference=conference)
+        form = PaperSubmissionForm(
+            request.POST,
+            request.FILES,
+            conference=conference
+        )
+
         if form.is_valid():
-            paper = form.save(commit=False)
-            paper.author = request.user
-            paper.conference = conference
-            paper.submitted_at = timezone.now() # Add submitted_at field
-            paper.save()
-            UserConferenceRole.objects.get_or_create(user=request.user, conference=conference, role='author')
-            # Get corresponding author
-            corresponding_author = Author.objects.filter(paper=paper, is_corresponding=True).first()
-            if corresponding_author:
-                send_paper_submission_emails(paper, conference, corresponding_author)
-            messages.success(request, 'Paper submitted successfully!')
-            #return redirect('dashboard:dashboard')
-            return redirect('conference:author_papers_view', conference_id=conference.id)
+            try:
+                with transaction.atomic():
+                    # Save paper
+                    paper = form.save(commit=False)
+                    paper.author = request.user
+                    paper.conference = conference
+                    paper.submitted_at = timezone.now()
+                    paper.save()
+
+                    # Assign user role
+                    UserConferenceRole.objects.get_or_create(
+                        user=request.user,
+                        conference=conference,
+                        role='author'
+                    )
+
+                # Try sending email (should never block submission)
+                try:
+                    corresponding_author = Author.objects.filter(
+                        paper=paper,
+                        is_corresponding=True
+                    ).first()
+
+                    if corresponding_author:
+                        send_paper_submission_emails(
+                            paper,
+                            conference,
+                            corresponding_author
+                        )
+                except Exception as email_error:
+                    # Log but do not break flow
+                    print("EMAIL ERROR:", email_error)
+
+                messages.success(request, 'Paper submitted successfully!')
+                return redirect(
+                    'conference:author_papers_view',
+                    conference_id=conference.id
+                )
+
+            except Exception as e:
+                # Any DB-level error
+                print("SUBMISSION ERROR:", e)
+                messages.error(
+                    request,
+                    'An error occurred while submitting the paper. Please try again.'
+                )
+
+        else:
+            # Form validation errors
+            print("FORM ERRORS:", form.errors)
+            messages.error(request, 'Please correct the errors below.')
+
     else:
         form = PaperSubmissionForm(conference=conference)
-    return render(request, 'conference/submit_paper.html', {'form': form, 'conference': conference})
+
+    return render(
+        request,
+        'conference/submit_paper.html',
+        {
+            'form': form,
+            'conference': conference
+        }
+    )
 
 @login_required
 def join_conference(request, invite_link):
