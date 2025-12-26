@@ -245,70 +245,75 @@ def reviewer_volunteer(request):
         form = ReviewerVolunteerForm()
     return render(request, 'conference/reviewer_volunteer.html', {'form': form})
 
+from django.contrib import messages
+from django.contrib.auth.decorators import login_required
+from django.db import transaction
+from django.shortcuts import get_object_or_404, redirect, render
+from django.utils import timezone
+
 @login_required
 def submit_paper(request, conference_id):
     conference = get_object_or_404(Conference, id=conference_id)
 
-    if request.method == 'POST':
-        form = PaperSubmissionForm(
-            request.POST,
-            request.FILES,
-            conference=conference
+    # GET → show form
+    if request.method == "GET":
+        form = PaperSubmissionForm(conference=conference)
+        return render(
+            request,
+            "dashboard/view_paper_submission.html",
+            {"form": form, "conference": conference}
         )
 
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    paper = form.save(commit=False)
-                    paper.author = request.user
-                    paper.conference = conference
-                    paper.submitted_at = timezone.now()
-                    paper.save()
-
-                    UserConferenceRole.objects.get_or_create(
-                        user=request.user,
-                        conference=conference,
-                        role='author'
-                    )
-
-                try:
-                    corresponding_author = Author.objects.filter(
-                        paper=paper,
-                        is_corresponding=True
-                    ).first()
-
-                    if corresponding_author:
-                        send_paper_submission_emails(
-                            paper, conference, corresponding_author
-                        )
-                except Exception:
-                    logger.exception("EMAIL ERROR")
-
-                messages.success(request, "Paper submitted successfully.")
-                return redirect(
-                    'conference:author_papers',
-                    conference_id=conference.id
-                )
-
-            except Exception:
-                logger.exception("SUBMISSION ERROR")
-                messages.error(
-                    request,
-                    "An unexpected error occurred. Please contact support."
-                )
-
-        else:
-            logger.warning("FORM ERRORS: %s", form.errors)
-            messages.error(request, "Please correct the errors below.")
-
-    else:
-        form = PaperSubmissionForm(conference=conference)
-
-    return render(
-        request,
-        'dashboard/view_paper_submission.html',
-        {'form': form, 'conference': conference}
+    # POST → process form
+    form = PaperSubmissionForm(
+        request.POST,
+        request.FILES,
+        conference=conference
     )
+
+    if not form.is_valid():
+        messages.error(request, "Please correct the errors below.")
+        return render(
+            request,
+            "dashboard/submit_paper.html",
+            {"form": form, "conference": conference}
+        )
+
+    # ✅ Save paper (ONLY DB logic here)
+    with transaction.atomic():
+        paper = form.save(commit=False)
+        paper.author = request.user
+        paper.conference = conference
+        paper.submitted_at = timezone.now()
+        paper.save()
+
+        UserConferenceRole.objects.get_or_create(
+            user=request.user,
+            conference=conference,
+            role="author"
+        )
+
+    # ✅ Non-blocking email (must NEVER affect redirect)
+    try:
+        corresponding_author = Author.objects.filter(
+            paper=paper,
+            is_corresponding=True
+        ).first()
+
+        if corresponding_author:
+            send_paper_submission_emails(
+                paper, conference, corresponding_author
+            )
+    except Exception as e:
+        print("Email error:", e)
+
+    # ✅ SUCCESS → REDIRECT (no code after this)
+    messages.success(request, "Paper submitted successfully.")
+    return redirect(
+        "conference:author_papers",
+        conference_id=conference.id
+    )
+
 
 
 @login_required
