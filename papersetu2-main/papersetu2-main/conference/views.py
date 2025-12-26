@@ -306,7 +306,7 @@ def submit_paper(request, conference_id):
 
     return render(
         request,
-        'conference/view_paper_submission.html',
+        'dashboard/view_paper_submission.html',
         {'form': form, 'conference': conference}
     )
 
