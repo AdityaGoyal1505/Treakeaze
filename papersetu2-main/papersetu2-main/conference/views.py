@@ -743,6 +743,7 @@ def stripe_webhook(request):
 
 @login_required
 def author_papers_view(request, conference_id):
+    print("AUTHOR PAPERS VIEW LOADED")
     conference = get_object_or_404(Conference, id=conference_id)
     papers = Paper.objects.filter(conference=conference, author=request.user).order_by('-submitted_at')
     return render(request, 'conference/author_papers.html', {
