@@ -255,64 +255,93 @@ from django.utils import timezone
 def submit_paper(request, conference_id):
     conference = get_object_or_404(Conference, id=conference_id)
 
-    # GET → show form
-    if request.method == "GET":
-        form = PaperSubmissionForm(conference=conference)
-        return render(
-            request,
-            "dashboard/view_paper_submission.html",
-            {"form": form, "conference": conference}
-        )
+    if request.method == "POST":
+        form = PaperSubmissionForm(request.POST, request.FILES, conference=conference)
 
-    # POST → process form
-    form = PaperSubmissionForm(
-        request.POST,
-        request.FILES,
-        conference=conference
-    )
+        if form.is_valid():
+            # Save paper safely
+            with transaction.atomic():
+                paper = form.save(commit=False)
+                paper.author = request.user
+                paper.conference = conference
+                paper.submitted_at = timezone.now()
+                paper.save()
 
-    if not form.is_valid():
+                UserConferenceRole.objects.get_or_create(
+                    user=request.user,
+                    conference=conference,
+                    role="author"
+                )
+
+            # Send email in a way that cannot block redirect
+            try:
+                corresponding_author = Author.objects.filter(
+                    paper=paper,
+                    is_corresponding=True
+                ).first()
+                if corresponding_author:
+                    send_paper_submission_emails(paper, conference, corresponding_author)
+            except Exception as e:
+                print("EMAIL ERROR:", e)
+
+            # SUCCESS → ALWAYS redirect
+            messages.success(request, "Paper submitted successfully.")
+            return redirect("conference:author_papers", conference_id=conference.id)
+
+        # Form is invalid → re-render form
         messages.error(request, "Please correct the errors below.")
-        return render(
-            request,
-            "dashboard/submit_paper.html",
-            {"form": form, "conference": conference}
-        )
 
-    # ✅ Save paper (ONLY DB logic here)
-    with transaction.atomic():
-        paper = form.save(commit=False)
-        paper.author = request.user
-        paper.conference = conference
-        paper.submitted_at = timezone.now()
-        paper.save()
+    else:
+        form = PaperSubmissionForm(conference=conference)
 
-        UserConferenceRole.objects.get_or_create(
-            user=request.user,
-            conference=conference,
-            role="author"
-        )
+    # GET request or invalid form
+    return render(request, "conference/submit_paper.html", {"form": form, "conference": conference})
+@login_required
+def submit_paper(request, conference_id):
+    conference = get_object_or_404(Conference, id=conference_id)
 
-    # ✅ Non-blocking email (must NEVER affect redirect)
-    try:
-        corresponding_author = Author.objects.filter(
-            paper=paper,
-            is_corresponding=True
-        ).first()
+    if request.method == "POST":
+        form = PaperSubmissionForm(request.POST, request.FILES, conference=conference)
 
-        if corresponding_author:
-            send_paper_submission_emails(
-                paper, conference, corresponding_author
-            )
-    except Exception as e:
-        print("Email error:", e)
+        if form.is_valid():
+            # Save paper safely
+            with transaction.atomic():
+                paper = form.save(commit=False)
+                paper.author = request.user
+                paper.conference = conference
+                paper.submitted_at = timezone.now()
+                paper.save()
 
-    # ✅ SUCCESS → REDIRECT (no code after this)
-    messages.success(request, "Paper submitted successfully.")
-    return redirect(
-        "conference:author_papers",
-        conference_id=conference.id
-    )
+                UserConferenceRole.objects.get_or_create(
+                    user=request.user,
+                    conference=conference,
+                    role="author"
+                )
+
+            # Send email in a way that cannot block redirect
+            try:
+                corresponding_author = Author.objects.filter(
+                    paper=paper,
+                    is_corresponding=True
+                ).first()
+                if corresponding_author:
+                    send_paper_submission_emails(paper, conference, corresponding_author)
+            except Exception as e:
+                print("EMAIL ERROR:", e)
+
+            # SUCCESS → ALWAYS redirect
+            messages.success(request, "Paper submitted successfully.")
+            return redirect("conference:author_papers", conference_id=conference.id)
+
+        # Form is invalid → re-render form
+        messages.error(request, "Please correct the errors below.")
+
+    else:
+        form = PaperSubmissionForm(conference=conference)
+
+    # GET request or invalid form
+    return render(request, "conference/submit_paper.html", {"form": form, "conference": conference})
+
 
 
 
