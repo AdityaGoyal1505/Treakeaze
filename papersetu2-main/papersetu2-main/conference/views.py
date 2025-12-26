@@ -259,21 +259,18 @@ def submit_paper(request, conference_id):
         if form.is_valid():
             try:
                 with transaction.atomic():
-                    # Save paper
                     paper = form.save(commit=False)
                     paper.author = request.user
                     paper.conference = conference
                     paper.submitted_at = timezone.now()
                     paper.save()
 
-                    # Assign user role
                     UserConferenceRole.objects.get_or_create(
                         user=request.user,
                         conference=conference,
                         role='author'
                     )
 
-                # Try sending email (should never block submission)
                 try:
                     corresponding_author = Author.objects.filter(
                         paper=paper,
@@ -282,32 +279,27 @@ def submit_paper(request, conference_id):
 
                     if corresponding_author:
                         send_paper_submission_emails(
-                            paper,
-                            conference,
-                            corresponding_author
+                            paper, conference, corresponding_author
                         )
-                except Exception as email_error:
-                    # Log but do not break flow
-                    print("EMAIL ERROR:", email_error)
+                except Exception:
+                    logger.exception("EMAIL ERROR")
 
-                messages.success(request, 'Paper submitted successfully!')
+                messages.success(request, "Paper submitted successfully.")
                 return redirect(
                     'conference:author_papers_view',
                     conference_id=conference.id
                 )
 
-            except Exception as e:
-                # Any DB-level error
-                print("SUBMISSION ERROR:", e)
+            except Exception:
+                logger.exception("SUBMISSION ERROR")
                 messages.error(
                     request,
-                    'An error occurred while submitting the paper. Please try again.'
+                    "An unexpected error occurred. Please contact support."
                 )
 
         else:
-            # Form validation errors
-            print("FORM ERRORS:", form.errors)
-            messages.error(request, 'Please correct the errors below.')
+            logger.warning("FORM ERRORS: %s", form.errors)
+            messages.error(request, "Please correct the errors below.")
 
     else:
         form = PaperSubmissionForm(conference=conference)
@@ -315,11 +307,9 @@ def submit_paper(request, conference_id):
     return render(
         request,
         'conference/submit_paper.html',
-        {
-            'form': form,
-            'conference': conference
-        }
+        {'form': form, 'conference': conference}
     )
+
 
 @login_required
 def join_conference(request, invite_link):
