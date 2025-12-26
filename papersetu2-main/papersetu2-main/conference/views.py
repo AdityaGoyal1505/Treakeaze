@@ -286,7 +286,7 @@ def submit_paper(request, conference_id):
 
                 messages.success(request, "Paper submitted successfully.")
                 return redirect(
-                    'conference:conference:author_papers',
+                    'conference:author_papers',
                     conference_id=conference.id
                 )
 
