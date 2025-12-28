@@ -453,11 +453,11 @@ class SubreviewerInvite(models.Model):
 
 class Author(models.Model):
     paper = models.ForeignKey('Paper', on_delete=models.CASCADE, related_name='authors')
-    first_name = models.CharField(max_length=150)
-    last_name = models.CharField(max_length=150)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
     email = models.EmailField()
-    country_region = models.CharField(max_length=150)
-    affiliation = models.CharField(max_length=500)
+    country_region = models.CharField(max_length=100)
+    affiliation = models.CharField(max_length=250)
     web_page = models.URLField(blank=True)
     is_corresponding = models.BooleanField(default=False)
 
