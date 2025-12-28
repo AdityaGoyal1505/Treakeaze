@@ -255,44 +255,67 @@ from django.utils import timezone
 def submit_paper(request, conference_id):
     conference = get_object_or_404(Conference, id=conference_id)
 
-    if request.method == "POST":
-        form = PaperSubmissionForm(request.POST, request.FILES, conference=conference)
-        print("FORM IS_VALID():", form.is_valid())
-        print("FORM ERRORS:", form.errors)
+    if request.method == 'POST':
+        form = PaperSubmissionForm(
+            request.POST,
+            request.FILES,
+            conference=conference
+        )
 
         if form.is_valid():
-            print("REDIRECT LINE REACHED")
-            paper = form.save(commit=False)
-            paper.author = request.user
-            paper.conference = conference
-            paper.submitted_at = timezone.now()
-            paper.save()
-
-            UserConferenceRole.objects.get_or_create(
-                user=request.user,
-                conference=conference,
-                role="author"
-            )
-
             try:
-                corresponding_author = Author.objects.filter(
-                    paper=paper,
-                    is_corresponding=True
-                ).first()
-                if corresponding_author:
-                    send_paper_submission_emails(paper, conference, corresponding_author)
-            except Exception as e:
-                print("EMAIL ERROR:", e)
+                with transaction.atomic():
+                    paper = form.save(commit=False)
+                    paper.author = request.user
+                    paper.conference = conference
+                    paper.submitted_at = timezone.now()
+                    paper.save()
 
-            messages.success(request, "Paper submitted successfully.")
-            return redirect("conference:author_papers", conference_id=conference.id)
+                    UserConferenceRole.objects.get_or_create(
+                        user=request.user,
+                        conference=conference,
+                        role='author'
+                    )
 
-        messages.error(request, "Please correct the errors below.")
+                try:
+                    corresponding_author = Author.objects.filter(
+                        paper=paper,
+                        is_corresponding=True
+                    ).first()
+
+                    if corresponding_author:
+                        send_paper_submission_emails(
+                            paper, conference, corresponding_author
+                        )
+                except Exception:
+                    logger.exception("EMAIL ERROR")
+
+                messages.success(request, "Paper submitted successfully.")
+                return redirect(
+                    'conference:author_papers_view',
+                    conference_id=conference.id
+                )
+
+            except Exception:
+                logger.exception("SUBMISSION ERROR")
+                messages.error(
+                    request,
+                    "An unexpected error occurred. Please contact support."
+                )
+
+        else:
+            logger.warning("FORM ERRORS: %s", form.errors)
+            messages.error(request, "Please correct the errors below.")
 
     else:
         form = PaperSubmissionForm(conference=conference)
 
-    return render(request, "conference/submit_paper.html", {"form": form, "conference": conference})
+    return render(
+        request,
+        'conference/submit_paper.html',
+        {'form': form, 'conference': conference}
+    )
+
 
 @login_required
 def join_conference(request, invite_link):
