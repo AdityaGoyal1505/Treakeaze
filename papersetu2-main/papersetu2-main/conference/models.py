@@ -4,6 +4,7 @@ from accounts.models import User
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.db import transaction, IntegrityError
+from django.core.exceptions import ValidationError
 from cloudinary_storage.storage import RawMediaCloudinaryStorage
 AREA_CHOICES = [
     ('AI', 'Artificial Intelligence'),
@@ -200,7 +201,7 @@ class Paper(models.Model):
                 except IntegrityError:
                     self.paper_id = None
     
-        raise IntegrityError("Unable to generate unique paper_id")
+        raise ValidationError("Paper ID limit reached for this conference.")
 
 
 class Review(models.Model):
