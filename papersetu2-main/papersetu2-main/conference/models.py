@@ -204,26 +204,26 @@ class Paper(models.Model):
     #     raise ValidationError("Paper ID limit reached for this conference.")
 
     def save(self, *args, **kwargs):
-    if self.paper_id:
-        return super().save(*args, **kwargs)
-
-    acronym = (self.conference.acronym or 'CONF').upper()
-    year = self.conference.start_date.year if self.conference.start_date else 0
-    yy = str(year)[-2:] if year else 'XX'
-    prefix = f"{acronym}{yy}"
-
-    last = (
-        Paper.objects
-        .filter(conference=self.conference, paper_id__startswith=prefix)
-        .order_by('-submitted_at')
-        .first()
-    )
-
-    serial = int(last.paper_id[len(prefix):]) + 1 if last else 1
-    self.paper_id = f"{prefix}{serial:04d}"
-
-    return super().save(*args, **kwargs)
+        if self.paper_id:
+            return super().save(*args, **kwargs)
     
+        acronym = (self.conference.acronym or 'CONF').upper()
+        year = self.conference.start_date.year if self.conference.start_date else 0
+        yy = str(year)[-2:] if year else 'XX'
+        prefix = f"{acronym}{yy}"
+    
+        last = (
+            Paper.objects
+            .filter(conference=self.conference, paper_id__startswith=prefix)
+            .order_by('-submitted_at')
+            .first()
+        )
+    
+        serial = int(last.paper_id[len(prefix):]) + 1 if last else 1
+        self.paper_id = f"{prefix}{serial:04d}"
+    
+        return super().save(*args, **kwargs)
+        
 class Review(models.Model):
     paper = models.ForeignKey(Paper, on_delete=models.CASCADE, related_name='reviews')
     reviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reviews')
