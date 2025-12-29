@@ -184,7 +184,7 @@ class Paper(models.Model):
                     Paper.objects
                     .select_for_update()
                     .filter(conference=self.conference, paper_id__startswith=prefix)
-                    .order_by('-created_at')   # ✅ SAFE
+                    .order_by('-paper_id')   # ✅ SAFE
                     .first()
                 )
     
