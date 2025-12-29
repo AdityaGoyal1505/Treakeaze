@@ -851,7 +851,14 @@ def conference_submissions(request, conf_id):
         })
     
     # Get all papers submitted to this conference
-    papers = Paper.objects.filter(conference=conference).select_related('author', 'track').order_by('-submitted_at')
+    papers = (
+        Paper.objects
+        .filter(conference=conference)
+        .select_related('author', 'track')
+        .prefetch_related('reviews', 'reviews__reviewer')
+        .order_by('-submitted_at')
+    )
+
     
     # If PC member has a track assigned, filter papers by their track
     # If PC member has no track assigned, they can see all papers
