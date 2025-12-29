@@ -168,41 +168,6 @@ class Paper(models.Model):
         # Status remains 'pending' until chair acts
         pass
 
-    # def save(self, *args, **kwargs):
-    #     if self.paper_id:
-    #         return super().save(*args, **kwargs)
-    
-    #     acronym = (self.conference.acronym or 'CONF').upper()
-    #     year = self.conference.start_date.year if self.conference.start_date else 0
-    #     yy = str(year)[-2:] if year else 'XX'
-    
-    #     prefix = f"{acronym}{yy}"
-    
-    #     for _ in range(10):
-    #         with transaction.atomic():
-    #             last = (
-    #                 Paper.objects
-    #                 .select_for_update()
-    #                 .filter(conference=self.conference, paper_id__startswith=prefix)
-    #                 .order_by('-paper_id')   # ✅ SAFE
-    #                 .first()
-    #             )
-    
-    #             if last:
-    #                 last_serial = int(last.paper_id[len(prefix):])
-    #                 serial = last_serial + 1
-    #             else:
-    #                 serial = 1
-    
-    #             self.paper_id = f"{prefix}{serial:04d}"  # ✅ 4 digits
-    
-    #             try:
-    #                 return super().save(*args, **kwargs)
-    #             except IntegrityError:
-    #                 self.paper_id = None
-    
-    #     raise ValidationError("Paper ID limit reached for this conference.")
-
     def save(self, *args, **kwargs):
         if self.paper_id:
             return super().save(*args, **kwargs)
@@ -210,19 +175,34 @@ class Paper(models.Model):
         acronym = (self.conference.acronym or 'CONF').upper()
         year = self.conference.start_date.year if self.conference.start_date else 0
         yy = str(year)[-2:] if year else 'XX'
+    
         prefix = f"{acronym}{yy}"
     
-        last = (
-            Paper.objects
-            .filter(conference=self.conference, paper_id__startswith=prefix)
-            .order_by('-submitted_at')
-            .first()
-        )
+        for _ in range(10):
+            with transaction.atomic():
+                last = (
+                    Paper.objects
+                    .select_for_update()
+                    .filter(conference=self.conference, paper_id__startswith=prefix)
+                    .order_by('-submitted_at')   # ✅ SAFE
+                    .first()
+                )
     
-        serial = int(last.paper_id[len(prefix):]) + 1 if last else 1
-        self.paper_id = f"{prefix}{serial:04d}"
+                if last:
+                    last_serial = int(last.paper_id[len(prefix):])
+                    serial = last_serial + 1
+                else:
+                    serial = 1
     
-        return super().save(*args, **kwargs)
+                self.paper_id = f"{prefix}{serial:04d}"  # ✅ 4 digits
+    
+                try:
+                    return super().save(*args, **kwargs)
+                except IntegrityError:
+                    self.paper_id = None
+    
+        raise IntegrityError("Unable to generate unique paper_id")
+
         
 class Review(models.Model):
     paper = models.ForeignKey(Paper, on_delete=models.CASCADE, related_name='reviews')
