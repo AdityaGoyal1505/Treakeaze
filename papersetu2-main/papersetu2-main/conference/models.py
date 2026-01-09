@@ -103,21 +103,47 @@ class ReviewInvite(models.Model):
     def __str__(self):
         return f"Invite: {self.reviewer} for {self.conference} ({self.status})"
 
+from django.db import models
+from django.contrib.auth.models import User
+
+
 class UserConferenceRole(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    conference = models.ForeignKey(Conference, on_delete=models.CASCADE)
-    role = models.CharField(max_length=15, choices=[
+    ROLE_CHOICES = [
         ('chair', 'Chair'),
         ('author', 'Author'),
         ('reviewer', 'Reviewer'),
         ('pc_member', 'PC Member'),
         ('subreviewer', 'Subreviewer'),
-    ])
-    track = models.ForeignKey('Track', on_delete=models.SET_NULL, null=True, blank=True, related_name='user_roles')
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    conference = models.ForeignKey('Conference', on_delete=models.CASCADE)
+    role = models.CharField(max_length=15, choices=ROLE_CHOICES)
+
+    track = models.ForeignKey(
+        'Track',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='user_roles'
+    )
+
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('user', 'conference', 'role')
+        # Same rule as before, just modern Django style
+        constraints = [
+            models.UniqueConstraint(
+                fields=['user', 'conference', 'role'],
+                name='unique_user_conference_role'
+            )
+        ]
+
+        # Performance + query stability
+        indexes = [
+            models.Index(fields=['user', 'conference']),
+            models.Index(fields=['conference', 'role']),
+        ]
 
     def __str__(self):
         return f"{self.user} - {self.role} @ {self.conference}"
