@@ -282,7 +282,7 @@ ADMIN_INTERFACE_CONFIG = {
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# AUTH_USER_MODEL = 'accounts.User'
+AUTH_USER_MODEL = 'accounts.User'
 
 # Password hashers - using bcrypt instead of argon2 to avoid Rust compilation issues
 PASSWORD_HASHERS = [
