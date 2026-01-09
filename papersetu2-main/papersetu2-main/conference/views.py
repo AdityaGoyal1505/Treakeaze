@@ -251,6 +251,12 @@ from django.db import transaction
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
+from django.db import transaction, IntegrityError
+from django.utils import timezone
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib.auth.decorators import login_required
+
 @login_required
 def submit_paper(request, conference_id):
     conference = get_object_or_404(Conference, id=conference_id)
@@ -271,25 +277,32 @@ def submit_paper(request, conference_id):
                     paper.submitted_at = timezone.now()
                     paper.save()
 
-                    UserConferenceRole.objects.get_or_create(
-                        user=request.user,
-                        conference=conference,
-                        role='author'
-                    )
-            except Exception as e:
+                    # ✅ SAFE role assignment
+                    try:
+                        UserConferenceRole.objects.create(
+                            user=request.user,
+                            conference=conference,
+                            role='author'
+                        )
+                    except IntegrityError:
+                        # Role already exists → ignore safely
+                        pass
+
+            except Exception:
                 logger.exception("SUBMISSION ERROR")
                 messages.error(
                     request,
-                    "Paper was saved, but role assignment failed."
+                    "Paper submission failed. Please try again."
                 )
                 return redirect(request.path)
 
-            # Email should NEVER block redirect
+            # 📧 Email should NEVER block redirect
             try:
                 corresponding_author = Author.objects.filter(
                     paper=paper,
                     is_corresponding=True
                 ).first()
+
                 if corresponding_author:
                     send_paper_submission_emails(
                         paper, conference, corresponding_author
