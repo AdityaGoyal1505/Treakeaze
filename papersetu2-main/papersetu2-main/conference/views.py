@@ -257,16 +257,21 @@ from django.contrib import messages
 from django.shortcuts import get_object_or_404, redirect, render
 from django.contrib.auth.decorators import login_required
 
+from django.db import transaction, IntegrityError
+from django.utils import timezone
+from django.contrib import messages
+from django.shortcuts import get_object_or_404, redirect, render
+from django.contrib.auth.decorators import login_required
+import logging
+
+logger = logging.getLogger(__name__)
+
 @login_required
 def submit_paper(request, conference_id):
     conference = get_object_or_404(Conference, id=conference_id)
 
     if request.method == 'POST':
-        form = PaperSubmissionForm(
-            request.POST,
-            request.FILES,
-            conference=conference
-        )
+        form = PaperSubmissionForm(request.POST, request.FILES, conference=conference)
 
         if form.is_valid():
             try:
@@ -277,7 +282,7 @@ def submit_paper(request, conference_id):
                     paper.submitted_at = timezone.now()
                     paper.save()
 
-                    # ✅ SAFE role assignment
+                    # SAFE role assignment
                     try:
                         UserConferenceRole.objects.create(
                             user=request.user,
@@ -290,13 +295,10 @@ def submit_paper(request, conference_id):
 
             except Exception:
                 logger.exception("SUBMISSION ERROR")
-                messages.error(
-                    request,
-                    "Paper submission failed. Please try again."
-                )
+                messages.error(request, "Paper submission failed. Please try again.")
                 return redirect(request.path)
 
-            # 📧 Email should NEVER block redirect
+            # EMAIL should NEVER block redirect
             try:
                 corresponding_author = Author.objects.filter(
                     paper=paper,
@@ -311,21 +313,21 @@ def submit_paper(request, conference_id):
                 logger.exception("EMAIL ERROR")
 
             messages.success(request, "Paper submitted successfully.")
-            return redirect(
-                'conference:author_papers_view',
-                conference_id=conference.id
-            )
+
+            # ----------- Role-based redirect (kept simple) -----------
+            # Redirect authors to their papers, others to dashboard
+            if UserConferenceRole.objects.filter(user=request.user, conference=conference, role='author').exists():
+                return redirect('conference:author_papers_view', conference_id=conference.id)
+            else:
+                return redirect('dashboard')
+            # --------------------------------------------------------
 
         messages.error(request, "Please correct the errors below.")
 
     else:
         form = PaperSubmissionForm(conference=conference)
 
-    return render(
-        request,
-        'conference/submit_paper.html',
-        {'form': form, 'conference': conference}
-    )
+    return render(request, 'conference/submit_paper.html', {'form': form, 'conference': conference})
 
 @login_required
 def join_conference(request, invite_link):
