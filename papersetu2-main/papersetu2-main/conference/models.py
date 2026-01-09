@@ -468,7 +468,7 @@ class Author(models.Model):
     last_name = models.CharField(max_length=100)
     email = models.EmailField()
     country_region = models.CharField(max_length=100)
-    affiliation = models.CharField(max_length=250)
+    affiliation = models.CharField(max_length=500)
     web_page = models.URLField(blank=True)
     is_corresponding = models.BooleanField(default=False)
 
