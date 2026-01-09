@@ -108,46 +108,23 @@ from django.contrib.auth.models import User
 
 
 class UserConferenceRole(models.Model):
-    ROLE_CHOICES = [
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    conference = models.ForeignKey(Conference, on_delete=models.CASCADE)
+    role = models.CharField(max_length=15, choices=[
         ('chair', 'Chair'),
         ('author', 'Author'),
         ('reviewer', 'Reviewer'),
         ('pc_member', 'PC Member'),
         ('subreviewer', 'Subreviewer'),
-    ]
-
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
-    conference = models.ForeignKey('Conference', on_delete=models.CASCADE)
-    role = models.CharField(max_length=15, choices=ROLE_CHOICES)
-
-    track = models.ForeignKey(
-        'Track',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='user_roles'
-    )
-
+    ])
+    track = models.ForeignKey('Track', on_delete=models.SET_NULL, null=True, blank=True, related_name='user_roles')
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        # Same rule as before, just modern Django style
-        constraints = [
-            models.UniqueConstraint(
-                fields=['user', 'conference', 'role'],
-                name='unique_user_conference_role'
-            )
-        ]
-
-        # Performance + query stability
-        indexes = [
-            models.Index(fields=['user', 'conference']),
-            models.Index(fields=['conference', 'role']),
-        ]
+        unique_together = ('user', 'conference', 'role')
 
     def __str__(self):
         return f"{self.user} - {self.role} @ {self.conference}"
-
 class Track(models.Model):
     track_id = models.CharField(max_length=20, unique=True)
     name = models.CharField(max_length=100)
