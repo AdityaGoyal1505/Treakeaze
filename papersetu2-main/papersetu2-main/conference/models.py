@@ -104,8 +104,7 @@ class ReviewInvite(models.Model):
         return f"Invite: {self.reviewer} for {self.conference} ({self.status})"
 
 from django.db import models
-from django.contrib.auth.models import User
-
+# from django.contrib.auth.models import User
 
 class UserConferenceRole(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
