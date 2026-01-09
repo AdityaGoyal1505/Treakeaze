@@ -263,6 +263,7 @@ def submit_paper(request, conference_id):
         )
 
         if form.is_valid():
+            paper = None
             try:
                 with transaction.atomic():
                     paper = form.save(commit=False)
@@ -270,39 +271,38 @@ def submit_paper(request, conference_id):
                     paper.conference = conference
                     paper.submitted_at = timezone.now()
                     paper.save()
-
+        
                     UserConferenceRole.objects.get_or_create(
                         user=request.user,
                         conference=conference,
                         role='author'
                     )
-
-                try:
-                    corresponding_author = Author.objects.filter(
-                        paper=paper,
-                        is_corresponding=True
-                    ).first()
-
-                    if corresponding_author:
-                        send_paper_submission_emails(
-                            paper, conference, corresponding_author
-                        )
-                except Exception:
-                    logger.exception("EMAIL ERROR")
-
-                messages.success(request, "Paper submitted successfully.")
-                return redirect(
-                    'conference:author_papers_view',
-                    conference_id=conference.id
-                )
-
             except Exception:
                 logger.exception("SUBMISSION ERROR")
                 messages.error(
                     request,
                     "An unexpected error occurred. Please contact support."
                 )
-
+                return redirect(request.path)
+        
+            # EMAIL should NEVER block redirect
+            try:
+                corresponding_author = Author.objects.filter(
+                    paper=paper,
+                    is_corresponding=True
+                ).first()
+                if corresponding_author:
+                    send_paper_submission_emails(
+                        paper, conference, corresponding_author
+                    )
+            except Exception:
+                logger.exception("EMAIL ERROR")
+        
+            messages.success(request, "Paper submitted successfully.")
+            return redirect(
+                'conference:author_papers_view',
+                conference_id=conference.id
+            )
         else:
             logger.warning("FORM ERRORS: %s", form.errors)
             messages.error(request, "Please correct the errors below.")
