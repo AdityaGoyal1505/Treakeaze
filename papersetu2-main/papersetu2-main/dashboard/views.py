@@ -957,6 +957,10 @@ def conference_submissions(request, conf_id):
     )
     
     # Use stats['total'], stats['accepted'], etc. in your context.
+    total_submissions = stats['total']
+    accepted_papers = stats['accepted']
+    rejected_papers = stats['rejected']
+    pending_papers = stats['pending']
     
     context = {
         'conference': conference,
