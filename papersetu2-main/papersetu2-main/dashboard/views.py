@@ -921,10 +921,15 @@ def conference_submissions(request, conf_id):
     ]
     
     # Statistics
-    total_submissions = Paper.objects.filter(conference=conference).count()
-    accepted_papers = Paper.objects.filter(conference=conference, status='accepted').count()
-    rejected_papers = Paper.objects.filter(conference=conference, status='rejected').count()
-    pending_papers = Paper.objects.filter(conference=conference, status='submitted').count()
+
+    stats = Paper.objects.filter(conference=conference).aggregate(
+        total=Count('id'),
+        accepted=Count('id', filter=Q(status='accepted')),
+        rejected=Count('id', filter=Q(status='rejected')),
+        pending=Count('id', filter=Q(status='submitted'))
+    )
+    
+    # Use stats['total'], stats['accepted'], etc. in your context.
     
     context = {
         'conference': conference,
