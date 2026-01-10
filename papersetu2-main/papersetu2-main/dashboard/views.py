@@ -851,22 +851,49 @@ def conference_submissions(request, conf_id):
         })
     
     # Get all papers submitted to this conference
-    from django.db.models import Count, Q
+    from django.db.models import Count, Q, Prefetch
 
+    # 1. Prepare the prefetch for reviews and latest recommendation
+    # This grabs the reviewers and recommendations in ONE extra query, not 100.
+    review_prefetch = Prefetch(
+        'reviews',
+        queryset=Review.objects.select_related('reviewer').order_by('-submitted_at'),
+        to_attr='prefetched_reviews'
+    )
+    
+    # 2. The Main Query
     papers = (
         Paper.objects
         .filter(conference=conference)
         .select_related('author', 'track')
         .annotate(
+            # These are calculated on the DB server (Railway) instantly
             total_reviews=Count('reviews'),
+            reviews_with_decision=Count('reviews', filter=Q(reviews__decision__in=['accept', 'reject'])),
             accept_count=Count('reviews', filter=Q(reviews__decision='accept')),
             reject_count=Count('reviews', filter=Q(reviews__decision='reject')),
-            reviews_with_decision=Count('reviews', filter=Q(reviews__decision__in=['accept', 'reject']))
         )
-        .prefetch_related('reviews__reviewer')
+        .prefetch_related(review_prefetch)
         .order_by('-submitted_at')
     )
-
+    
+    # 3. Fast In-Memory Loop (No Database Hits!)
+    for paper in papers:
+        # Logic that doesn't need the DB anymore
+        paper.pending_reviews = paper.total_reviews - paper.reviews_with_decision
+        
+        # Get the "assigned_reviewers" list from the prefetched data in RAM
+        paper.assigned_reviewers = [
+            {
+                'user': rev.reviewer,
+                'decision': rev.decision,
+                'submitted_at': rev.submitted_at
+            }
+            for rev in paper.prefetched_reviews
+        ]
+    
+        recs = [r for r in paper.prefetched_reviews if r.recommendation and not r.decision]
+        paper.latest_subreviewer_recommendation = recs[0] if recs else None
     
     # If PC member has a track assigned, filter papers by their track
     # If PC member has no track assigned, they can see all papers
@@ -897,22 +924,22 @@ def conference_submissions(request, conf_id):
         )
     
     # Re-calculate review statistics for filtered papers (after all filters are applied)
-    for paper in papers:
-        reviews = paper.reviews.all()
-        paper.total_reviews = reviews.count()
-        paper.reviews_with_decision = reviews.filter(decision__in=['accept', 'reject']).count()
-        paper.accept_count = reviews.filter(decision='accept').count()
-        paper.reject_count = reviews.filter(decision='reject').count()
-        paper.pending_reviews = paper.total_reviews - paper.reviews_with_decision
-        paper.assigned_reviewers = [
-            {
-                'user': review.reviewer,
-                'decision': review.decision,
-                'submitted_at': review.submitted_at
-            }
-            for review in reviews
-        ]
-        paper.latest_subreviewer_recommendation = reviews.filter(recommendation__isnull=False, decision__isnull=True).order_by('-submitted_at').first()
+    # for paper in papers:
+    #     reviews = paper.reviews.all()
+    #     paper.total_reviews = reviews.count()
+    #     paper.reviews_with_decision = reviews.filter(decision__in=['accept', 'reject']).count()
+    #     paper.accept_count = reviews.filter(decision='accept').count()
+    #     paper.reject_count = reviews.filter(decision='reject').count()
+    #     paper.pending_reviews = paper.total_reviews - paper.reviews_with_decision
+    #     paper.assigned_reviewers = [
+    #         {
+    #             'user': review.reviewer,
+    #             'decision': review.decision,
+    #             'submitted_at': review.submitted_at
+    #         }
+    #         for review in reviews
+    #     ]
+    #     paper.latest_subreviewer_recommendation = reviews.filter(recommendation__isnull=False, decision__isnull=True).order_by('-submitted_at').first()
     
     # Navigation items for the conference
     nav_items = [
