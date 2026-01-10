@@ -851,11 +851,19 @@ def conference_submissions(request, conf_id):
         })
     
     # Get all papers submitted to this conference
+    from django.db.models import Count, Q
+
     papers = (
         Paper.objects
         .filter(conference=conference)
         .select_related('author', 'track')
-        .prefetch_related('reviews', 'reviews__reviewer')
+        .annotate(
+            total_reviews=Count('reviews'),
+            accept_count=Count('reviews', filter=Q(reviews__decision='accept')),
+            reject_count=Count('reviews', filter=Q(reviews__decision='reject')),
+            reviews_with_decision=Count('reviews', filter=Q(reviews__decision__in=['accept', 'reject']))
+        )
+        .prefetch_related('reviews__reviewer')
         .order_by('-submitted_at')
     )
 
