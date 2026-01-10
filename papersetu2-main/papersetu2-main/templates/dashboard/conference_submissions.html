@@ -277,28 +277,43 @@
                                 </div>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                {# Show latest subreviewer recommendation if any and not yet decided #}
-                                {% with rec=paper.latest_subreviewer_recommendation %}
-                                    {% if rec %}
-                                        <span class="font-semibold">{{ rec.recommendation|title }}</span>
-                                        <div class="text-xs text-gray-400 mt-1">By: {{ rec.reviewer.get_full_name|default:rec.reviewer.username }}</div>
-                                        <div class="text-xs text-gray-400">Marks: {{ rec.rating }}, Comments: {{ rec.comments|truncatewords:10 }}</div>
-                                        {% if is_chair %}
-                                            <form method="post" action="{% url 'dashboard:approve_recommendation' rec.id %}" class="mt-2 flex gap-2 approve-recommendation-form">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="decision" value="accept">
-                                                <button type="submit" class="px-2 py-1 bg-green-600 text-white rounded text-xs">Accept</button>
-                                            </form>
-                                            <form method="post" action="{% url 'dashboard:approve_recommendation' rec.id %}" class="mt-2 flex gap-2 approve-recommendation-form">
-                                                {% csrf_token %}
-                                                <input type="hidden" name="decision" value="reject">
-                                                <button type="submit" class="px-2 py-1 bg-red-600 text-white rounded text-xs">Reject</button>
-                                            </form>
-                                        {% endif %}
-                                    {% else %}
-                                        <span class="text-gray-400">-</span>
-                                    {% endif %}
-                                {% endwith %}
+                                {# We set paper.latest_subreviewer_recommendation in the Python loop #}
+                                {% if paper.latest_subreviewer_recommendation %}
+                                    {% with rec=paper.latest_subreviewer_recommendation %}
+                                        <div class="flex flex-col">
+                                            <span class="font-semibold text-blue-600">{{ rec.recommendation|title }}</span>
+                                            
+                                            <div class="text-xs text-gray-400 mt-1">
+                                                By: {{ rec.reviewer.get_full_name|default:rec.reviewer.username }}
+                                            </div>
+                                            
+                                            <div class="text-xs text-gray-500 italic">
+                                                Marks: {{ rec.rating|default:"N/A" }}
+                                            </div>
+                            
+                                            {% if is_chair %}
+                                                <div class="mt-2 flex gap-2">
+                                                    <form method="post" action="{% url 'dashboard:approve_recommendation' rec.id %}" class="inline">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="decision" value="accept">
+                                                        <button type="submit" class="px-2 py-0.5 bg-green-100 text-green-700 border border-green-300 rounded text-xs hover:bg-green-200 transition">
+                                                            Accept
+                                                        </button>
+                                                    </form>
+                                                    <form method="post" action="{% url 'dashboard:approve_recommendation' rec.id %}" class="inline">
+                                                        {% csrf_token %}
+                                                        <input type="hidden" name="decision" value="reject">
+                                                        <button type="submit" class="px-2 py-0.5 bg-red-100 text-red-700 border border-red-300 rounded text-xs hover:bg-red-200 transition">
+                                                            Reject
+                                                        </button>
+                                                    </form>
+                                                </div>
+                                            {% endif %}
+                                        </div>
+                                    {% endwith %}
+                                {% else %}
+                                    <span class="text-gray-400 italic text-xs">No pending recommendation</span>
+                                {% endif %}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500 text-center">
                                 {% if paper.plagiarism_percentage is not None %}
