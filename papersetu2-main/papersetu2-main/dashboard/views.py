@@ -3609,46 +3609,47 @@ def delete_submissions_table(request, conf_id):
     
     return render(request, 'dashboard/partials/delete_submissions_table_body.html', {'author_list': author_list})
 
+
+from django.http import StreamingHttpResponse
+
 @login_required
 def download_submissions(request, conf_id):
-    conference = Conference.objects.get(id=conf_id)
-    papers = Paper.objects.filter(conference=conference)
+    conference = get_object_or_404(Conference, id=conf_id)
+    # Only get papers that actually have a file to save time
+    papers = Paper.objects.filter(conference=conference).exclude(file='')
 
-    zip_buffer = BytesIO()
+    def file_iterator():
+        zip_buffer = BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            # Use a Session to reuse the connection
+            with requests.Session() as session:
+                for paper in papers:
+                    try:
+                        file_url, _ = cloudinary_url(
+                            paper.file.name,
+                            resource_type="raw",
+                            sign_url=True,
+                        )
+                        
+                        # Download with a shorter timeout per file
+                        response = session.get(file_url, timeout=10)
 
-    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-        for paper in papers:
-            if not paper.file:
-                continue
+                        if response.status_code == 200:
+                            filename = f"{slugify(paper.title[:30])}_{paper.paper_id}.pdf"
+                            zip_file.writestr(filename, response.content)
+                            
+                            # Yield the current progress to keep the connection alive
+                            yield b"" 
+                    except Exception as e:
+                        print(f"Error downloading {paper.id}: {e}")
+                        continue
+                        
+        zip_buffer.seek(0)
+        yield zip_buffer.getvalue()
 
-            try:
-                # ✅ paper.file.name IS the Cloudinary public_id
-                public_id = paper.file.name
-
-                file_url, _ = cloudinary_url(
-                    public_id,
-                    resource_type="raw",
-                    sign_url=True,   # required for private/authenticated files
-                )
-
-                response = requests.get(file_url, timeout=30)
-
-                if response.status_code == 200 and response.content:
-                    filename = f"{slugify(paper.title)}_{paper.id}.pdf"
-                    zip_file.writestr(filename, response.content)
-                else:
-                    print("Skipped:", paper.id, response.status_code)
-
-            except Exception as e:
-                print(f"Error with paper {paper.id}: {e}")
-
-    zip_buffer.seek(0)
-
-    response = HttpResponse(zip_buffer, content_type="application/zip")
-    response["Content-Disposition"] = (
-        f'attachment; filename="{slugify(conference.name)}_submissions.zip"'
-    )
-
+    response = StreamingHttpResponse(file_iterator(), content_type="application/zip")
+    filename = f"{slugify(conference.name)}_submissions.zip"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
 
 @login_required
