@@ -3642,10 +3642,13 @@ def download_submissions(request, conf_id):
 
                     if response.status_code == 200:
                         # Create a clean filename
-                        clean_title = slugify(paper.title)[:50]
-                        filename = f"{paper.paper_id}_{clean_title}.pdf"
+                        # Use a counter or the database PK to guarantee uniqueness
+                        paper_id_safe = paper.paper_id if paper.paper_id else f"ID-{paper.pk}"
+                        clean_title = slugify(paper.title)[:50] if paper.title else "untitled"
                         
-                        # Write the file content into the ZIP
+                        # Adding the loop index or PK at the end ensures no two files are named the same
+                        filename = f"{paper_id_safe}_{clean_title}_{paper.pk}.pdf"
+                        
                         zip_file.writestr(filename, response.content)
                 except Exception as e:
                     print(f"Error adding paper {paper.id} to ZIP: {e}")
