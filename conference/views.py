@@ -249,22 +249,35 @@ def reviewer_volunteer(request):
 def submit_paper(request, conference_id):
     conference = get_object_or_404(Conference, id=conference_id)
     if request.method == 'POST':
-        form = PaperSubmissionForm(request.POST, request.FILES, conference=conference)
+        form = PaperSubmissionForm(request.POST, request.FILES, conference=conference, user=request.user)
         if form.is_valid():
             paper = form.save(commit=False)
             paper.author = request.user
             paper.conference = conference
             paper.submitted_at = timezone.now() # Add submitted_at field
+            
+            # Check for duplicate submissions (same title by same author in same conference)
+            duplicate_paper = Paper.objects.filter(
+                title__iexact=paper.title,
+                author=paper.author,
+                conference=conference
+            ).first()
+            
+            if duplicate_paper:
+                messages.error(request, 'Duplicate Entry is not allowed')
+                # Retain form data by re-rendering with the submitted form
+                return render(request, 'conference/submit_paper.html', {'form': form, 'conference': conference})
+            
             paper.save()
             UserConferenceRole.objects.get_or_create(user=request.user, conference=conference, role='author')
             # Get corresponding author
             corresponding_author = Author.objects.filter(paper=paper, is_corresponding=True).first()
             if corresponding_author:
                 send_paper_submission_emails(paper, conference, corresponding_author)
-            messages.success(request, 'Paper submitted successfully!')
-            return redirect('dashboard:dashboard')
+            messages.success(request, f'Paper submitted successfully! Paper ID: {paper.paper_id}')
+            return redirect('conference:submit_paper', conference_id=conference_id)
     else:
-        form = PaperSubmissionForm(conference=conference)
+        form = PaperSubmissionForm(conference=conference, user=request.user)
     return render(request, 'conference/submit_paper.html', {'form': form, 'conference': conference})
 
 @login_required
@@ -438,9 +451,8 @@ def author_dashboard(request, conference_id):
         ),
         '-submitted_at'
     )
-    message = ''
     if request.method == 'POST':
-        paper_form = PaperSubmissionForm(request.POST, request.FILES, conference=conference)
+        paper_form = PaperSubmissionForm(request.POST, request.FILES, conference=conference, user=user)
         authors_data = request.POST.getlist('authors_json')
         import json
         authors = json.loads(authors_data[0]) if authors_data else []
@@ -449,6 +461,25 @@ def author_dashboard(request, conference_id):
             paper.author = user
             paper.conference = conference
             paper.submitted_at = timezone.now() # Add submitted_at field
+            
+            # Check for duplicate submissions (same title by same author in same conference)
+            duplicate_paper = Paper.objects.filter(
+                title__iexact=paper.title,
+                author=paper.author,
+                conference=conference
+            ).first()
+            
+            if duplicate_paper:
+                messages.error(request, 'Duplicate Entry is not allowed')
+                # Retain form data and authors by re-rendering with the context
+                context = {
+                    'conference': conference,
+                    'papers': papers,
+                    'paper_form': paper_form,
+                    'preserved_authors': json.dumps(authors),  # Pass authors back to template
+                }
+                return render(request, 'conference/author_dashboard.html', context)
+            
             paper.save()
             # Save authors
             corresponding_found = False
@@ -477,16 +508,32 @@ def author_dashboard(request, conference_id):
             corresponding_author = Author.objects.filter(paper=paper, is_corresponding=True).first()
             if corresponding_author:
                 send_paper_submission_emails(paper, conference, corresponding_author)
-            message = 'Paper submitted successfully!'
-            papers = Paper.objects.filter(conference=conference, author=user)
-        else:
-            message = 'Please fill all required fields and add at least one author.'
+            messages.success(request, f'Paper submitted successfully! Paper ID: {paper.paper_id}')
+            return redirect('conference:author_dashboard', conference_id=conference_id)
+        elif not authors:
+            messages.error(request, 'Please add at least one author.')
+            # Preserve form data even when no authors
+            context = {
+                'conference': conference,
+                'papers': papers,
+                'paper_form': paper_form,
+            }
+            return render(request, 'conference/author_dashboard.html', context)
+        elif not paper_form.is_valid():
+            messages.error(request, 'Please fill all required fields.')
+            # Preserve form data and authors when form is invalid
+            context = {
+                'conference': conference,
+                'papers': papers,
+                'paper_form': paper_form,
+                'preserved_authors': json.dumps(authors) if authors else None,
+            }
+            return render(request, 'conference/author_dashboard.html', context)
     else:
-        paper_form = PaperSubmissionForm(conference=conference)
+        paper_form = PaperSubmissionForm(conference=conference, user=user)
     context = {
         'conference': conference,
         'papers': papers,
-        'message': message,
         'paper_form': paper_form,
     }
     return render(request, 'conference/author_dashboard.html', context)

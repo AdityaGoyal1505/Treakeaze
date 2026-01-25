@@ -893,6 +893,15 @@ def conference_submissions(request, conf_id):
             for review in reviews
         ]
         paper.latest_subreviewer_recommendation = reviews.filter(recommendation__isnull=False, decision__isnull=True).order_by('-submitted_at').first()
+        
+        # Get corresponding author for email functionality
+        corresponding_author = paper.authors.filter(is_corresponding=True).first()
+        if corresponding_author:
+            paper.corresponding_author_email = corresponding_author.email
+            paper.corresponding_author_name = corresponding_author.first_name or corresponding_author.get_full_name()
+        else:
+            paper.corresponding_author_email = paper.author.email
+            paper.corresponding_author_name = paper.author.get_full_name() or paper.author.username
     
     # Navigation items for the conference
     nav_items = [
@@ -1967,7 +1976,16 @@ def subreviewers(request, conf_id):
     if user_role and user_role.track:
         papers = papers.filter(track=user_role.track)
     
-    all_users = User.objects.exclude(id=conference.chair.id)
+    # Filter users to only those associated with this conference (privacy)
+    # Include: reviewers, PC members, subreviewers, and users who have any role in this conference
+    conference_user_ids = UserConferenceRole.objects.filter(
+        conference=conference
+    ).values_list('user_id', flat=True)
+    
+    all_users = User.objects.filter(
+        id__in=conference_user_ids
+    ).exclude(id=conference.chair.id).distinct()
+    
     if search_query:
         all_users = all_users.filter(username__icontains=search_query) | all_users.filter(email__icontains=search_query)
 
@@ -3270,7 +3288,15 @@ def pc_subreviewers(request, conf_id):
     if user_role.track:
         papers = papers.filter(track=user_role.track)
     
-    all_users = User.objects.exclude(id=conference.chair.id)
+    # Filter users to only those associated with this conference (privacy)
+    conference_user_ids = UserConferenceRole.objects.filter(
+        conference=conference
+    ).values_list('user_id', flat=True)
+    
+    all_users = User.objects.filter(
+        id__in=conference_user_ids
+    ).exclude(id=conference.chair.id).distinct()
+    
     context = {
         'conference': conference,
         'papers': papers,
@@ -3343,14 +3369,31 @@ def delete_submissions(request, conf_id):
         })
     
     if request.method == 'POST':
-        selected_emails = request.POST.getlist('selected_authors')
-        # Delete all papers by these authors for this conference
-        for email in selected_emails:
-            # Delete papers where main author matches
-            Paper.objects.filter(conference=conference, author__email=email).delete()
-            # Delete papers where additional author matches
-            author_papers = Author.objects.filter(email=email, paper__conference=conference).values_list('paper_id', flat=True)
-            Paper.objects.filter(id__in=author_papers, conference=conference).delete()
+        # Check if deleting by author or by paper ID
+        if 'delete_paper_id' in request.POST:
+            # Delete individual paper by Paper ID
+            paper_id = request.POST.get('delete_paper_id')
+            try:
+                paper = Paper.objects.get(id=paper_id, conference=conference)
+                paper_title = paper.title
+                paper.delete()
+                messages.success(request, f'Paper "{paper_title}" (ID: {paper.paper_id}) has been deleted successfully.')
+            except Paper.DoesNotExist:
+                messages.error(request, 'Paper not found.')
+        else:
+            # Delete selected papers
+            selected_paper_ids = request.POST.getlist('selected_papers')
+            if selected_paper_ids:
+                # Convert to integers
+                paper_ids = [int(pid) for pid in selected_paper_ids]
+                # Get the papers to be deleted for confirmation
+                papers_to_delete = Paper.objects.filter(id__in=paper_ids, conference=conference)
+                deleted_count = papers_to_delete.count()
+                # Delete the papers
+                papers_to_delete.delete()
+                messages.success(request, f'{deleted_count} paper(s) have been deleted successfully.')
+            else:
+                messages.warning(request, 'No papers selected for deletion.')
         return redirect('dashboard:delete_submissions', conf_id=conf_id)
     
     return render(request, 'dashboard/delete_submissions.html', {
@@ -3716,41 +3759,130 @@ def manage_submission(request, conf_id, submission_id):
             return redirect('dashboard:manage_submission', conf_id=conf_id, submission_id=submission_id)
         # Decision update
         decision = request.POST.get('decision')
-        if decision in ['accept', 'reject'] and is_chair:  # Only chair can make final decisions
+        send_email = request.POST.get('send_email') == '1'  # Check if email checkbox is checked
+        
+        if decision in ['accept', 'reject', 'under_review'] and is_chair:  # Only chair can make final decisions
             old_status = paper.status
             # Map to model status values
             if decision == 'accept':
                 paper.status = 'accepted'
             elif decision == 'reject':
                 paper.status = 'rejected'
+            elif decision == 'under_review':
+                paper.status = 'under_review'
             paper.save()
+            
             # Create notification for author
             Notification.objects.create(
                 recipient=paper.author,
                 notification_type='paper_decision',
-                title=f'Paper Decision - {decision.title()}',
-                message=f'Your paper "{paper.title}" has been {decision}ed for {conference.name}.',
+                title=f'Paper Decision - {decision.title().replace("_", " ")}',
+                message=f'Your paper "{paper.title}" has been {decision.replace("_", " ")}ed for {conference.name}.',
                 related_paper=paper,
                 related_conference=conference
             )
-            # Always send email to author when final decision is set/changed
-            corresponding_author = paper.authors.filter(is_corresponding=True).first()
-            if not corresponding_author:
-                corresponding_author = paper.author
-            subject = f"Paper Decision for '{paper.title}' - {conference.name}"
-            if decision == 'accept':
-                body = f"Dear {corresponding_author.first_name if hasattr(corresponding_author, 'first_name') else corresponding_author.get_full_name()},\n\n"
-                body += f"We are pleased to inform you that your paper '{paper.title}' has been ACCEPTED.\n\n"
+            
+            # Send email to author if checkbox is selected
+            if send_email:
+                corresponding_author = paper.authors.filter(is_corresponding=True).first()
+                if not corresponding_author:
+                    corresponding_author = paper.author
+                
+                # Get author's name and email
+                author_name = corresponding_author.first_name if hasattr(corresponding_author, 'first_name') else corresponding_author.get_full_name()
+                author_email = corresponding_author.email if hasattr(corresponding_author, 'email') else corresponding_author.email
+                
+                # Prepare email content based on status
+                if decision == 'accept':
+                    subject = f"Congratulations! Your Paper Has Been Accepted - {conference.name}"
+                    body = f"""Dear {author_name},
+
+We are delighted to inform you that your paper has been ACCEPTED for {conference.name}.
+
+Paper Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Paper ID: {paper.paper_id}
+• Title: {paper.title}
+• Conference: {conference.name}
+• Decision: ACCEPTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Congratulations on this achievement! Your research has been selected to be part of our conference program.
+
+Next Steps:
+1. Prepare your final camera-ready version
+2. Register for the conference
+3. Prepare your presentation
+
+You can view your paper details and complete the next steps by logging into your dashboard.
+
+We look forward to seeing you at {conference.name}!
+
+Best regards,
+{conference.name} Program Committee
+Conference Chair: {conference.chair.get_full_name() if conference.chair else 'Conference Team'}"""
+                
+                elif decision == 'reject':
+                    subject = f"Paper Decision Notification - {conference.name}"
+                    body = f"""Dear {author_name},
+
+Thank you for submitting your paper to {conference.name}. After careful review by our program committee, we regret to inform you that your paper has not been accepted for this conference.
+
+Paper Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Paper ID: {paper.paper_id}
+• Title: {paper.title}
+• Conference: {conference.name}
+• Decision: NOT ACCEPTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+We received a large number of high-quality submissions this year, making the selection process extremely competitive. While your paper was not selected for this conference, we encourage you to consider the feedback from the reviewers and continue your valuable research.
+
+We appreciate your interest in {conference.name} and hope you will consider submitting your future work to our conference.
+
+Best regards,
+{conference.name} Program Committee
+Conference Chair: {conference.chair.get_full_name() if conference.chair else 'Conference Team'}"""
+                
+                elif decision == 'under_review':
+                    subject = f"Paper Status Update - Under Review - {conference.name}"
+                    body = f"""Dear {author_name},
+
+This is to notify you that your paper submission status has been updated.
+
+Paper Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Paper ID: {paper.paper_id}
+• Title: {paper.title}
+• Conference: {conference.name}
+• Status: UNDER REVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your paper is currently being evaluated by our program committee members. We will notify you once the review process is complete and a final decision has been made.
+
+You can track your submission status by logging into your dashboard.
+
+Thank you for your patience during the review process.
+
+Best regards,
+{conference.name} Program Committee
+Conference Chair: {conference.chair.get_full_name() if conference.chair else 'Conference Team'}"""
+                
+                try:
+                    send_mail(
+                        subject=subject,
+                        message=body,
+                        from_email=settings.DEFAULT_FROM_EMAIL,
+                        recipient_list=[author_email],
+                        fail_silently=False
+                    )
+                    messages.success(request, f'Paper status updated to {decision.replace("_", " ")} and email notification sent successfully.')
+                except Exception as e:
+                    print(f"[ERROR] Failed to send status email to {author_email}: {e}")
+                    messages.warning(request, f'Paper status updated to {decision.replace("_", " ")}, but email notification failed to send.')
             else:
-                body = f"Dear {corresponding_author.first_name if hasattr(corresponding_author, 'first_name') else corresponding_author.get_full_name()},\n\n"
-                body += f"We regret to inform you that your paper '{paper.title}' has been REJECTED.\n\n"
-            body += f"Best regards,\n{conference.name} Program Committee"
-            to_email = corresponding_author.email if hasattr(corresponding_author, 'email') else corresponding_author.email
-            try:
-                send_mail(subject, body, None, [to_email])
-            except Exception as e:
-                print(f"[ERROR] Failed to send decision email to {to_email}: {e}")
-            messages.success(request, f'Paper has been {decision}ed successfully.')
+                messages.success(request, f'Paper status updated to {decision.replace("_", " ")} successfully.')
+            
             # Always redirect to manage_submission to see updated data
             return redirect('dashboard:manage_submission', conf_id=conf_id, submission_id=submission_id)
     
@@ -3774,6 +3906,303 @@ def manage_submission(request, conf_id, submission_id):
     }
     
     return render(request, 'dashboard/manage_submission.html', context)
+
+@login_required
+@require_POST
+def send_bulk_status_emails(request, conf_id):
+    """Send status update emails to multiple paper authors"""
+    conference = get_object_or_404(Conference, id=conf_id)
+    
+    # Check if user is chair
+    if conference.chair != request.user:
+        messages.error(request, 'Only the conference chair can send bulk emails.')
+        return redirect('dashboard:conference_submissions', conf_id=conf_id)
+    
+    # Get paper IDs from form
+    paper_ids = request.POST.get('paper_ids', '').split(',')
+    paper_ids = [int(pid) for pid in paper_ids if pid.strip()]
+    
+    if not paper_ids:
+        messages.error(request, 'No papers selected.')
+        return redirect('dashboard:conference_submissions', conf_id=conf_id)
+    
+    # Get papers
+    papers = Paper.objects.filter(id__in=paper_ids, conference=conference)
+    
+    success_count = 0
+    failed_count = 0
+    
+    for paper in papers:
+        try:
+            # Get corresponding author
+            corresponding_author = paper.authors.filter(is_corresponding=True).first()
+            if not corresponding_author:
+                corresponding_author = paper.author
+            
+            # Get author details
+            author_name = corresponding_author.first_name if hasattr(corresponding_author, 'first_name') else corresponding_author.get_full_name()
+            author_email = corresponding_author.email if hasattr(corresponding_author, 'email') else corresponding_author.email
+            
+            # Prepare email based on paper status
+            status = paper.status
+            
+            if status == 'accepted':
+                subject = f"Congratulations! Your Paper Has Been Accepted - {conference.name}"
+                body = f"""Dear {author_name},
+
+We are delighted to inform you that your paper has been ACCEPTED for {conference.name}.
+
+Paper Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Paper ID: {paper.paper_id}
+• Title: {paper.title}
+• Conference: {conference.name}
+• Decision: ACCEPTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Congratulations on this achievement! Your research has been selected to be part of our conference program.
+
+Next Steps:
+1. Prepare your final camera-ready version
+2. Register for the conference
+3. Prepare your presentation
+
+You can view your paper details and complete the next steps by logging into your dashboard.
+
+We look forward to seeing you at {conference.name}!
+
+Best regards,
+{conference.name} Program Committee
+Conference Chair: {conference.chair.get_full_name() if conference.chair else 'Conference Team'}"""
+            
+            elif status == 'rejected':
+                subject = f"Paper Decision Notification - {conference.name}"
+                body = f"""Dear {author_name},
+
+Thank you for submitting your paper to {conference.name}. After careful review by our program committee, we regret to inform you that your paper has not been accepted for this conference.
+
+Paper Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Paper ID: {paper.paper_id}
+• Title: {paper.title}
+• Conference: {conference.name}
+• Decision: NOT ACCEPTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+We received a large number of high-quality submissions this year, making the selection process extremely competitive. While your paper was not selected for this conference, we encourage you to consider the feedback from the reviewers and continue your valuable research.
+
+We appreciate your interest in {conference.name} and hope you will consider submitting your future work to our conference.
+
+Best regards,
+{conference.name} Program Committee
+Conference Chair: {conference.chair.get_full_name() if conference.chair else 'Conference Team'}"""
+            
+            elif status == 'under_review':
+                subject = f"Paper Status Update - Under Review - {conference.name}"
+                body = f"""Dear {author_name},
+
+This is to notify you that your paper submission status has been updated.
+
+Paper Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Paper ID: {paper.paper_id}
+• Title: {paper.title}
+• Conference: {conference.name}
+• Status: UNDER REVIEW
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your paper is currently being evaluated by our program committee members. We will notify you once the review process is complete and a final decision has been made.
+
+You can track your submission status by logging into your dashboard.
+
+Thank you for your patience during the review process.
+
+Best regards,
+{conference.name} Program Committee
+Conference Chair: {conference.chair.get_full_name() if conference.chair else 'Conference Team'}"""
+            
+            elif status == 'submitted':
+                subject = f"Paper Submission Confirmation - {conference.name}"
+                body = f"""Dear {author_name},
+
+This is a confirmation that we have received your paper submission.
+
+Paper Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Paper ID: {paper.paper_id}
+• Title: {paper.title}
+• Conference: {conference.name}
+• Status: SUBMITTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Your paper has been successfully submitted and will be reviewed by our program committee. We will notify you once the review process begins and when a final decision has been made.
+
+Thank you for your submission!
+
+Best regards,
+{conference.name} Program Committee
+Conference Chair: {conference.chair.get_full_name() if conference.chair else 'Conference Team'}"""
+            
+            else:
+                # Default message for other statuses
+                subject = f"Paper Status Update - {conference.name}"
+                body = f"""Dear {author_name},
+
+This is to notify you about your paper submission.
+
+Paper Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Paper ID: {paper.paper_id}
+• Title: {paper.title}
+• Conference: {conference.name}
+• Status: {status.upper()}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+You can view your paper details by logging into your dashboard.
+
+Best regards,
+{conference.name} Program Committee
+Conference Chair: {conference.chair.get_full_name() if conference.chair else 'Conference Team'}"""
+            
+            # Send email
+            send_mail(
+                subject=subject,
+                message=body,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[author_email],
+                fail_silently=False
+            )
+            success_count += 1
+            
+        except Exception as e:
+            print(f"[ERROR] Failed to send email for paper {paper.paper_id}: {e}")
+            failed_count += 1
+    
+    # Show results to user
+    if success_count > 0:
+        messages.success(request, f'Successfully sent {success_count} email(s).')
+    if failed_count > 0:
+        messages.warning(request, f'Failed to send {failed_count} email(s).')
+    
+    return redirect('dashboard:conference_submissions', conf_id=conf_id)
+
+@login_required
+def export_authors(request, conf_id):
+    """
+    Export all authors for a conference as CSV or Excel file with email addresses.
+    """
+    conference = get_object_or_404(Conference, id=conf_id)
+    
+    if conference.chair != request.user:
+        return render(request, 'dashboard/forbidden.html', {
+            'message': 'Only the conference chair can export author data.'
+        })
+    
+    # Get all papers for this conference
+    papers = Paper.objects.filter(conference=conference).select_related('author')
+    
+    # Create a map to group authors by email
+    author_map = {}
+    
+    # Add main authors from Paper.author
+    for paper in papers:
+        main_author = paper.author
+        email = main_author.email
+        name = f"{main_author.first_name} {main_author.last_name}" if main_author.first_name and main_author.last_name else main_author.username
+        
+        if email not in author_map:
+            author_map[email] = {
+                'name': name,
+                'email': email,
+                'country': getattr(main_author, 'country_region', 'N/A'),
+                'affiliation': getattr(main_author, 'affiliation', 'N/A'),
+                'papers': []
+            }
+        author_map[email]['papers'].append(paper.title)
+    
+    # Add additional authors from Author model
+    additional_authors = Author.objects.filter(paper__conference=conference).select_related('paper')
+    for author in additional_authors:
+        email = author.email
+        name = f"{author.first_name} {author.last_name}"
+        
+        if email not in author_map:
+            author_map[email] = {
+                'name': name,
+                'email': email,
+                'country': author.country_region,
+                'affiliation': author.affiliation,
+                'papers': []
+            }
+        author_map[email]['papers'].append(author.paper.title)
+    
+    # Get export format
+    export_format = request.GET.get('format', 'csv').lower()
+    
+    # Prepare data
+    columns = ['Name', 'Email', 'Country/Region', 'Affiliation', 'Submission Count', 'Paper Titles']
+    rows = []
+    
+    for email, data in author_map.items():
+        # Remove duplicate paper titles
+        unique_papers = list(set(data['papers']))
+        rows.append([
+            data['name'],
+            data['email'],
+            data['country'],
+            data['affiliation'],
+            len(unique_papers),
+            '; '.join(unique_papers)
+        ])
+    
+    # Sort by name
+    rows.sort(key=lambda x: x[0])
+    
+    if export_format == 'excel':
+        # Export as Excel
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Authors'
+        
+        # Add header
+        ws.append(columns)
+        
+        # Add data rows
+        for row in rows:
+            ws.append(row)
+        
+        # Adjust column widths
+        ws.column_dimensions['A'].width = 30
+        ws.column_dimensions['B'].width = 35
+        ws.column_dimensions['C'].width = 20
+        ws.column_dimensions['D'].width = 40
+        ws.column_dimensions['E'].width = 18
+        ws.column_dimensions['F'].width = 60
+        
+        # Prepare response
+        output = BytesIO()
+        wb.save(output)
+        output.seek(0)
+        
+        response = HttpResponse(
+            output.read(),
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = f'attachment; filename="{conference.acronym or "conference"}_authors.xlsx"'
+        return response
+    
+    else:
+        # Export as CSV
+        response = HttpResponse(content_type='text/csv')
+        response['Content-Disposition'] = f'attachment; filename="{conference.acronym or "conference"}_authors.csv"'
+        
+        writer = csv.writer(response)
+        writer.writerow(columns)
+        
+        for row in rows:
+            writer.writerow(row)
+        
+        return response
 
 @login_required
 def authors_manage(request, conf_id):
@@ -4447,6 +4876,7 @@ def export_submissions_excel(request, conf_id):
     # Map keys to Paper model fields or computed values
     column_map = {
         'authors': lambda paper: paper.author.get_full_name() or paper.author.username or str(paper.author),
+        'email': lambda paper: paper.author.email,
         'title': lambda paper: paper.title,
         'paper_id': lambda paper: paper.id,
         'time': lambda paper: paper.submitted_at.strftime('%Y-%m-%d %H:%M') if hasattr(paper, 'submitted_at') and paper.submitted_at else '',
@@ -4483,6 +4913,7 @@ def export_submissions_excel_options(request, conf_id):
     # Define available columns (could be made dynamic if needed)
     available_columns = [
         {'key': 'authors', 'label': 'Authors', 'default': True},
+        {'key': 'email', 'label': 'Email', 'default': True},
         {'key': 'title', 'label': 'Title', 'default': True},
         {'key': 'paper_id', 'label': 'Paper ID', 'default': True},
         {'key': 'time', 'label': 'Time', 'default': False},

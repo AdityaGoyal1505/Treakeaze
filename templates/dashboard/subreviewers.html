@@ -135,7 +135,7 @@
                     <select name="user_id" id="singleUserSelect" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
                         <option value="">Choose a subreviewer...</option>
                         {% for user in all_users %}
-                            <option value="{{ user.id }}">{{ user.get_full_name|default:user.username }} ({{ user.email }})</option>
+                            <option value="{{ user.id }}" data-email="{{ user.email }}">{{ user.get_full_name|default:user.username }} ({{ user.email }})</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -146,7 +146,7 @@
                         <i class="fas fa-envelope text-gray-500 mr-2"></i>
                         Subreviewer Email
                     </label>
-                    <input type="email" name="email" placeholder="Enter email address" 
+                    <input type="email" name="email" id="subreviewerEmail" placeholder="Enter email address" 
                            class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" required>
                 </div>
             </div>
@@ -376,11 +376,57 @@ checkboxes.forEach(cb => {
     });
 });
 
-// Paper ID validation
+// Paper ID validation and auto-sync
 const paperTitleSelect = document.getElementById('paperTitleSelect');
 const paperIdSelect = document.getElementById('paperIdSelect');
 const paperIdError = document.getElementById('paperIdError');
 const submitButton = document.querySelector('button[type="submit"]');
+
+function syncPaperIdFromTitle() {
+    const selectedTitleOption = paperTitleSelect.options[paperTitleSelect.selectedIndex];
+    
+    if (selectedTitleOption.value) {
+        const expectedPaperId = selectedTitleOption.getAttribute('data-paper-id');
+        
+        // Auto-select the matching paper ID
+        for (let i = 0; i < paperIdSelect.options.length; i++) {
+            if (paperIdSelect.options[i].value === expectedPaperId) {
+                paperIdSelect.selectedIndex = i;
+                paperIdSelect.classList.remove('border-red-500');
+                paperIdSelect.classList.add('border-green-500');
+                paperIdError.classList.add('hidden');
+                break;
+            }
+        }
+    } else {
+        paperIdSelect.selectedIndex = 0;
+        paperIdSelect.classList.remove('border-red-500', 'border-green-500');
+        paperIdError.classList.add('hidden');
+    }
+}
+
+function syncPaperTitleFromId() {
+    const selectedIdOption = paperIdSelect.options[paperIdSelect.selectedIndex];
+    
+    if (selectedIdOption.value) {
+        const selectedPaperId = selectedIdOption.value;
+        
+        // Auto-select the matching paper title
+        for (let i = 0; i < paperTitleSelect.options.length; i++) {
+            if (paperTitleSelect.options[i].getAttribute('data-paper-id') === selectedPaperId) {
+                paperTitleSelect.selectedIndex = i;
+                paperIdSelect.classList.remove('border-red-500');
+                paperIdSelect.classList.add('border-green-500');
+                paperIdError.classList.add('hidden');
+                break;
+            }
+        }
+    } else {
+        paperTitleSelect.selectedIndex = 0;
+        paperIdSelect.classList.remove('border-red-500', 'border-green-500');
+        paperIdError.classList.add('hidden');
+    }
+}
 
 function validatePaperId() {
     const selectedTitleOption = paperTitleSelect.options[paperTitleSelect.selectedIndex];
@@ -436,8 +482,33 @@ function updatePaperIdOptions() {
     validatePaperId();
 }
 
-paperTitleSelect.addEventListener('change', validatePaperId);
-paperIdSelect.addEventListener('change', validatePaperId);
+paperTitleSelect.addEventListener('change', function() {
+    syncPaperIdFromTitle();
+    validatePaperId();
+});
+
+paperIdSelect.addEventListener('change', function() {
+    syncPaperTitleFromId();
+    validatePaperId();
+});
+
 document.querySelector('select[name="track"]').addEventListener('change', updatePaperIdOptions);
+
+// Auto-sync email when subreviewer is selected
+const singleUserSelect = document.getElementById('singleUserSelect');
+const subreviewerEmail = document.getElementById('subreviewerEmail');
+
+singleUserSelect.addEventListener('change', function() {
+    const selectedOption = singleUserSelect.options[singleUserSelect.selectedIndex];
+    
+    if (selectedOption.value) {
+        const email = selectedOption.getAttribute('data-email');
+        subreviewerEmail.value = email;
+        subreviewerEmail.classList.add('border-green-500');
+    } else {
+        subreviewerEmail.value = '';
+        subreviewerEmail.classList.remove('border-green-500');
+    }
+});
 </script>
 {% endblock %} 

@@ -69,6 +69,7 @@ urlpatterns = [
     path('conference/<int:conf_id>/delete-submissions/', views.delete_submissions, name='delete_submissions'),
     path('conference/<int:conf_id>/authors/', views.authors_list, name='authors_list'),
     path('conference/<int:conf_id>/authors/table/', views.authors_list_table, name='authors_list_table'),
+    path('conference/<int:conf_id>/authors/export/', views.export_authors, name='export_authors'),
     path('conference/<int:conf_id>/authors/manage/', views.authors_manage, name='authors_manage'),
     path('conference/<int:conf_id>/delete-submissions/table/', views.delete_submissions_table, name='delete_submissions_table'),
     path('conference/<int:conf_id>/download-submissions/', views.download_submissions, name='download_submissions'),
@@ -77,6 +78,7 @@ urlpatterns = [
     path('conference/<int:conf_id>/submissions/<int:submission_id>/view/', views.view_paper_submission, name='view_paper_submission'),
     path('conference/<int:conf_id>/submission/<int:submission_id>/manage/', views.manage_submission, name='manage_submission'),
     path('conference/<int:conf_id>/submission/<int:submission_id>/review/<int:review_id>/change/', views.change_review_decision, name='change_review_decision'),
+    path('conference/<int:conf_id>/send-bulk-status-emails/', views.send_bulk_status_emails, name='send_bulk_status_emails'),
     path('approve_recommendation/<int:review_id>/', views.approve_recommendation, name='approve_recommendation'),
     # Review functionality URLs
     path('conference/<int:conf_id>/submission/<int:submission_id>/add-review/', views.add_review, name='add_review'),

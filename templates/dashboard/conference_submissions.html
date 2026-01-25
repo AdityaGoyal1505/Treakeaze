@@ -149,6 +149,7 @@
                     <select name="status" id="status" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
                         <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Status</option>
                         <option value="submitted" {% if status_filter == 'submitted' %}selected{% endif %}>Submitted</option>
+                        <option value="under_review" {% if status_filter == 'under_review' %}selected{% endif %}>Under Review</option>
                         <option value="accepted" {% if status_filter == 'accepted' %}selected{% endif %}>Accepted</option>
                         <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
                     </select>
@@ -169,18 +170,30 @@
 
         <!-- Papers List -->
         <section class="bg-white rounded-lg shadow">
-            <div class="px-6 py-4 border-b border-gray-200">
-                <h2 class="text-xl font-semibold text-gray-900">
-                    Paper Submissions
-                    {% if search_query %}
-                        <span class="text-sm text-gray-500">- Results for "{{ search_query }}"</span>
-                    {% endif %}
-                    {% if user_track %}
-                        <span class="text-sm text-blue-600">- Filtered by your track: {{ user_track.name }} ({{ user_track.track_id }})</span>
-                    {% elif is_pc_member %}
-                        <span class="text-sm text-green-600">- You can view all papers (no track assigned)</span>
-                    {% endif %}
-                </h2>
+            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+                <div>
+                    <h2 class="text-xl font-semibold text-gray-900">
+                        Paper Submissions
+                        {% if search_query %}
+                            <span class="text-sm text-gray-500">- Results for "{{ search_query }}"</span>
+                        {% endif %}
+                        {% if user_track %}
+                            <span class="text-sm text-blue-600">- Filtered by your track: {{ user_track.name }} ({{ user_track.track_id }})</span>
+                        {% elif is_pc_member %}
+                            <span class="text-sm text-green-600">- You can view all papers (no track assigned)</span>
+                        {% endif %}
+                    </h2>
+                </div>
+                {% if is_chair %}
+                <div class="flex items-center gap-3">
+                    <button id="bulkEmailBtn" 
+                            onclick="openBulkEmailModal()" 
+                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled>
+                        <i class="fas fa-envelope mr-2"></i>Send Status Email (<span id="selectedCount">0</span> selected)
+                    </button>
+                </div>
+                {% endif %}
             </div>
             
             <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
@@ -213,6 +226,12 @@
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
                         <tr>
+                            {% if is_chair %}
+                            <th class="px-4 py-3 text-center">
+                                <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" 
+                                       class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                            </th>
+                            {% endif %}
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paper ID</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Track ID</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Track Name</th>
@@ -220,6 +239,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Author</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Reviews</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Submitted</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subreviewer Recommendation</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plagiarism %</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
@@ -228,6 +248,17 @@
                     <tbody class="bg-white divide-y divide-gray-200">
                         {% for paper in papers %}
                         <tr class="hover:bg-gray-50">
+                            {% if is_chair %}
+                            <td class="px-4 py-4 text-center">
+                                <input type="checkbox" class="paper-checkbox w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500" 
+                                       data-paper-id="{{ paper.id }}" 
+                                       data-paper-title="{{ paper.title }}" 
+                                       data-author-email="{{ paper.corresponding_author_email }}" 
+                                       data-author-name="{{ paper.corresponding_author_name }}" 
+                                       data-paper-status="{{ paper.status }}" 
+                                       onchange="updateSelectedCount()">
+                            </td>
+                            {% endif %}
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-700">{{ paper.paper_id }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">{{ paper.track.track_id|default:'-' }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">{{ paper.track.name|default:'-' }}</td>
@@ -275,6 +306,17 @@
                                     <div class="font-medium">{{ paper.submitted_at|date:"M d, Y" }}</div>
                                     <div class="text-xs text-gray-400">{{ paper.submitted_at|date:"H:i" }}</div>
                                 </div>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-3 py-1 rounded-full text-xs font-semibold
+                                    {% if paper.status == 'accepted' %}bg-green-100 text-green-800
+                                    {% elif paper.status == 'rejected' %}bg-red-100 text-red-800
+                                    {% elif paper.status == 'under_review' %}bg-purple-100 text-purple-800
+                                    {% elif paper.status == 'submitted' %}bg-blue-100 text-blue-800
+                                    {% elif paper.status == 'pending' %}bg-yellow-100 text-yellow-800
+                                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                                    {% if paper.status == 'under_review' %}Under Review{% else %}{{ paper.status|title }}{% endif %}
+                                </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                 {# Show latest subreviewer recommendation if any and not yet decided #}
@@ -337,6 +379,84 @@
         </section>
     </main>
 
+    <!-- Bulk Email Modal -->
+    <div id="bulkEmailModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-medium leading-6 text-gray-900">
+                        <i class="fas fa-envelope mr-2 text-blue-600"></i>Send Status Email to Selected Authors
+                    </h3>
+                    <button onclick="closeBulkEmailModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times text-xl"></i>
+                    </button>
+                </div>
+                
+                <div class="mt-4 mb-4 p-4 bg-blue-50 rounded-lg">
+                    <p class="text-sm text-gray-700">
+                        <strong>Selected Papers:</strong> <span id="modalSelectedCount">0</span>
+                    </p>
+                    <div id="selectedPapersList" class="mt-2 max-h-40 overflow-y-auto"></div>
+                </div>
+
+                <form id="bulkEmailForm" method="post" action="{% url 'dashboard:send_bulk_status_emails' conference.id %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="paper_ids" id="paper_ids" value="">
+                    
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Email Subject Template:
+                        </label>
+                        <input type="text" name="subject_template" 
+                               value="Paper Status Update - {{ conference.name }}" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                               required>
+                        <p class="text-xs text-gray-500 mt-1">Variables: {paper_title}, {paper_id}, {status}</p>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Include Paper Details:
+                        </label>
+                        <div class="flex items-center gap-4">
+                            <label class="flex items-center">
+                                <input type="checkbox" name="include_paper_id" checked 
+                                       class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">Paper ID</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="checkbox" name="include_status" checked 
+                                       class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
+                                <span class="ml-2 text-sm text-gray-700">Current Status</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-4 p-4 bg-yellow-50 rounded-lg">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-yellow-600 mt-1 mr-2"></i>
+                            <p class="text-sm text-gray-700">
+                                Each author will receive an email about their paper's current status. 
+                                The email content will be customized based on whether the paper is accepted, rejected, or under review.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-end gap-3 mt-6">
+                        <button type="button" onclick="closeBulkEmailModal()" 
+                                class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition duration-150">
+                            Cancel
+                        </button>
+                        <button type="submit" 
+                                class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150">
+                            <i class="fas fa-paper-plane mr-2"></i>Send Emails
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <script>
         // Profile dropdown logic
         const profileBtn = document.getElementById('profileBtn');
@@ -356,6 +476,74 @@
             // Redirect to the new paper view page
             window.location.href = `/dashboard/conference/{{ conference.id }}/submissions/${paperId}/view/`;
         }
+
+        // Bulk email functions
+        function toggleSelectAll(checkbox) {
+            const checkboxes = document.querySelectorAll('.paper-checkbox');
+            checkboxes.forEach(cb => {
+                cb.checked = checkbox.checked;
+            });
+            updateSelectedCount();
+        }
+
+        function updateSelectedCount() {
+            const checkboxes = document.querySelectorAll('.paper-checkbox:checked');
+            const count = checkboxes.length;
+            document.getElementById('selectedCount').textContent = count;
+            
+            const bulkEmailBtn = document.getElementById('bulkEmailBtn');
+            if (bulkEmailBtn) {
+                bulkEmailBtn.disabled = count === 0;
+            }
+            
+            // Update select all checkbox state
+            const selectAllCheckbox = document.getElementById('selectAll');
+            const allCheckboxes = document.querySelectorAll('.paper-checkbox');
+            if (selectAllCheckbox && allCheckboxes.length > 0) {
+                selectAllCheckbox.checked = count === allCheckboxes.length;
+                selectAllCheckbox.indeterminate = count > 0 && count < allCheckboxes.length;
+            }
+        }
+
+        function openBulkEmailModal() {
+            const checkboxes = document.querySelectorAll('.paper-checkbox:checked');
+            if (checkboxes.length === 0) {
+                alert('Please select at least one paper');
+                return;
+            }
+
+            const paperIds = [];
+            const papersList = [];
+            
+            checkboxes.forEach(cb => {
+                paperIds.push(cb.dataset.paperId);
+                const paperTitle = cb.dataset.paperTitle;
+                const authorName = cb.dataset.authorName;
+                const status = cb.dataset.paperStatus;
+                papersList.push(`
+                    <div class="text-sm py-1 border-b border-gray-200">
+                        <strong>${paperTitle}</strong><br>
+                        <span class="text-gray-600">Author: ${authorName} | Status: ${status}</span>
+                    </div>
+                `);
+            });
+
+            document.getElementById('paper_ids').value = paperIds.join(',');
+            document.getElementById('modalSelectedCount').textContent = checkboxes.length;
+            document.getElementById('selectedPapersList').innerHTML = papersList.join('');
+            document.getElementById('bulkEmailModal').classList.remove('hidden');
+        }
+
+        function closeBulkEmailModal() {
+            document.getElementById('bulkEmailModal').classList.add('hidden');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('bulkEmailModal')?.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeBulkEmailModal();
+            }
+        });
 
 
     </script>

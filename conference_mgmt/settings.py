@@ -14,7 +14,7 @@ if allowed_hosts_env:
     ALLOWED_HOSTS = allowed_hosts_env.split(',')
 else:
     # Default hosts for development
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'papersetu2.onrender.com', '*.onrender.com']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'papersetu2.onrender.com', '*.onrender.com', 'prakhar046.pythonanywhere.com']
 
 # Security settings for production
 if not DEBUG:

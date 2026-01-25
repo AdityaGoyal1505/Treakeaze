@@ -144,6 +144,8 @@ class PaperSubmissionForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         conference = kwargs.pop('conference', None)
+        self.conference = conference
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
         if conference:
             self.fields['track'].queryset = conference.tracks.all()
@@ -151,6 +153,23 @@ class PaperSubmissionForm(forms.ModelForm):
                 self.fields['track'].widget = forms.HiddenInput()
         else:
             self.fields['track'].queryset = Track.objects.none()
+    
+    def clean_title(self):
+        title = self.cleaned_data.get('title')
+        if title and self.conference and self.user:
+            # Check for duplicate submission in the same conference
+            existing_paper = Paper.objects.filter(
+                title__iexact=title,
+                author=self.user,
+                conference=self.conference
+            ).first()
+            
+            if existing_paper:
+                raise forms.ValidationError(
+                    f'You have already submitted a paper with this title to this conference '
+                    f'(Paper ID: {existing_paper.paper_id}). Please use a different title or edit your existing submission.'
+                )
+        return title
 
 class ConferenceInfoForm(forms.ModelForm):
     """Form for basic conference information settings."""

@@ -154,6 +154,19 @@ class Paper(models.Model):
     keywords = models.CharField(max_length=255, blank=True, help_text="Comma-separated keywords")
     plagiarism_percentage = models.PositiveSmallIntegerField(null=True, blank=True, help_text="Plagiarism percentage (0-100)")
 
+    class Meta:
+        # Prevent duplicate submissions: same title by same author in same conference
+        constraints = [
+            models.UniqueConstraint(
+                fields=['title', 'author', 'conference'],
+                name='unique_paper_per_author_conference'
+            )
+        ]
+        indexes = [
+            models.Index(fields=['conference', 'author', 'status']),
+            models.Index(fields=['conference', 'submitted_at']),
+        ]
+
     def __str__(self):
         return self.title
     
