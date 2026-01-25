@@ -165,10 +165,7 @@ class PaperSubmissionForm(forms.ModelForm):
             ).first()
             
             if existing_paper:
-                raise forms.ValidationError(
-                    f'You have already submitted a paper with this title to this conference '
-                    f'(Paper ID: {existing_paper.paper_id}). Please use a different title or edit your existing submission.'
-                )
+                raise forms.ValidationError('Duplicate Entry is not allowed')
         return title
 
 class ConferenceInfoForm(forms.ModelForm):

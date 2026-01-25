@@ -264,7 +264,11 @@ def submit_paper(request, conference_id):
             ).first()
             
             if duplicate_paper:
-                messages.error(request, 'Duplicate Entry is not allowed')
+                messages.error(
+                    request,
+                    f'You have already submitted a paper with the title "{paper.title}" to this conference. '
+                    f'Paper ID: {duplicate_paper.paper_id}. Please submit a different paper or edit your existing submission.'
+                )
                 # Retain form data by re-rendering with the submitted form
                 return render(request, 'conference/submit_paper.html', {'form': form, 'conference': conference})
             
@@ -520,7 +524,14 @@ def author_dashboard(request, conference_id):
             }
             return render(request, 'conference/author_dashboard.html', context)
         elif not paper_form.is_valid():
-            messages.error(request, 'Please fill all required fields.')
+            # Check if it's a duplicate error (title field has validation error)
+            if 'title' in paper_form.errors and paper_form.errors['title']:
+                # It's likely a duplicate error, show it directly
+                error_message = paper_form.errors['title'][0]
+                messages.error(request, error_message)
+            else:
+                # Generic validation error
+                messages.error(request, 'Please fill all required fields.')
             # Preserve form data and authors when form is invalid
             context = {
                 'conference': conference,
