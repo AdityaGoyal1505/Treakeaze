@@ -1,0 +1,32 @@
+[project]
+name = "papersetu2-main"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "asgiref==3.8.1",
+    "bcrypt==4.1.2",
+    "cryptography==41.0.7",
+    "dj-database-url==3.0.1",
+    "django==5.2.3",
+    "django-admin-interface==0.30.1",
+    "django-colorfield==0.14.0",
+    "django-widget-tweaks==1.5.0",
+    "fuzzywuzzy==0.18.0",
+    "gunicorn==21.2.0",
+    "openpyxl==3.1.5",
+    "pillow==11.3.0",
+    "psycopg[binary]==3.2.9",
+    "python-dateutil==2.9.0.post0",
+    "python-dotenv==1.1.1",
+    "python-levenshtein==0.27.1",
+    "pytz==2025.2",
+    "pyyaml==6.0.2",
+    "requests==2.32.4",
+    "social-auth-app-django==5.4.3",
+    "social-auth-core==4.6.1",
+    "sqlparse==0.5.3",
+    "stripe==5.0.0",
+    "whitenoise==6.6.0",
+]
