@@ -17,36 +17,64 @@ admin.site.index_title = settings.ADMIN_INDEX_TITLE
 def homepage(request):
     from django.db.models import Q
     user = request.user
-    # Conferences where user is chair, pc_member, author, or subreviewer (via UserConferenceRole)
+
+    # 1️⃣ Base queryset (NO evaluation yet)
     user_conferences = Conference.objects.filter(
         Q(chair=user) |
-        Q(userconferencerole__user=user, userconferencerole__role__in=['author', 'pc_member', 'subreviewer'])
-    ).distinct().filter(is_approved=True)
-    # Add conferences where user is assigned as subreviewer via SubreviewerInvite (pending or accepted)
+        Q(
+            userconferencerole__user=user,
+            userconferencerole__role__in=['author', 'pc_member', 'subreviewer']
+        ),
+        is_approved=True
+    )
+
     subreviewer_confs = Conference.objects.filter(
         papers__subreviewer_invites__subreviewer=user,
-        papers__subreviewer_invites__status__in=['invited', 'accepted']
-    ).distinct().filter(is_approved=True)
-    # Combine and deduplicate
-    all_confs = (user_conferences | subreviewer_confs).distinct()
-    # Add role information to each conference
-    for conference in all_confs:
-        conference.user_roles = list(UserConferenceRole.objects.filter(
-            user=user, 
-            conference=conference
-        ).values_list('role', flat=True))
-    
-    # Get live and upcoming conferences for browsing
-    live_upcoming_confs = Conference.objects.filter(
-        status__in=['live', 'upcoming'], 
+        papers__subreviewer_invites__status__in=['invited', 'accepted'],
         is_approved=True
-    ).exclude(id__in=all_confs.values_list('id', flat=True))
-    
-    context = {
-        'user_conferences': all_confs,
+    )
+
+    # 2️⃣ Combine SAFELY (get IDs only – LIGHTWEIGHT)
+    conf_ids = (
+        user_conferences.values_list("id", flat=True)
+        .union(subreviewer_confs.values_list("id", flat=True))
+    )
+
+    # 3️⃣ Stream conferences (THIS FIXES DiskFull)
+    all_confs = (
+        Conference.objects
+        .filter(id__in=conf_ids)
+        .only("id", "title", "status", "start_date")
+        .order_by("id")
+        .iterator(chunk_size=200)
+    )
+
+    # 4️⃣ Preload roles in ONE query (NO N+1)
+    roles_map = {}
+    for r in UserConferenceRole.objects.filter(
+        user=user,
+        conference_id__in=conf_ids
+    ).values("conference_id", "role"):
+        roles_map.setdefault(r["conference_id"], []).append(r["role"])
+
+    # 5️⃣ Attach roles (IN-MEMORY, SAFE)
+    conferences = []
+    for conf in all_confs:
+        conf.user_roles = roles_map.get(conf.id, [])
+        conferences.append(conf)
+
+    # 6️⃣ Live & upcoming (EXCLUDE BY IDS, SAFE)
+    live_upcoming_confs = (
+        Conference.objects
+        .filter(status__in=['live', 'upcoming'], is_approved=True)
+        .exclude(id__in=conf_ids)
+        .only("id", "title", "status")
+    )
+
+    return render(request, 'homepage.html', {
+        'user_conferences': conferences,
         'live_upcoming_confs': live_upcoming_confs,
     }
-    return render(request, 'homepage.html', context)
 
 def root_redirect(request):
     if request.user.is_authenticated:
