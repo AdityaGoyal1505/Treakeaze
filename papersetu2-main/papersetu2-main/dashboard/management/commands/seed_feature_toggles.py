@@ -6,7 +6,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         count = 0
-        for conf in Conference.objects.all():
+        for conf in Conference.objects.all().iterator(chunk_size=500):
             for feature, _ in FEATURE_CHOICES:
                 obj, created = ConferenceFeatureToggle.objects.get_or_create(
                     conference=conf, feature=feature, defaults={'enabled': True}
