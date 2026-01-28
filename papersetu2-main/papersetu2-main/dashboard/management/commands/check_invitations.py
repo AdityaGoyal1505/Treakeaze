@@ -21,7 +21,7 @@ class Command(BaseCommand):
             self.stdout.write(f"- {reviewer.username}: {reviewer.reviewer_profile.expertise}")
         
         # Check conferences
-        conferences = Conference.objects.all()
+        conferences = Conference.objects.all().iterator(chunk_size=500)
         self.stdout.write(f"\nConferences: {conferences.count()}")
         for conf in conferences:
             conf_invites = ReviewInvite.objects.filter(conference=conf)
