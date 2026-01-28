@@ -22,7 +22,7 @@ class Command(BaseCommand):
             
             # List all conferences
             self.stdout.write('\n   Conferences in database:')
-            for conf in Conference.objects.all()[:10]:
+            for conf in Conference.objects.order_by("id")[:10]:
                 self.stdout.write(f'   - {conf.name} (ID: {conf.id}, Approved: {conf.is_approved})')
                 
         except Exception as e:
