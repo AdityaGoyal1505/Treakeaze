@@ -44,7 +44,7 @@ def homepage(request):
     all_confs = (
         Conference.objects
         .filter(id__in=conf_ids)
-        .only("id", "title", "status", "start_date")
+        .only("id", "name", "status", "start_date")
         .order_by("id")
         .iterator(chunk_size=200)
     )
