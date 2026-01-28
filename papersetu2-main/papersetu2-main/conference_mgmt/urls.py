@@ -74,7 +74,7 @@ def homepage(request):
     return render(request, 'homepage.html', {
         'user_conferences': conferences,
         'live_upcoming_confs': live_upcoming_confs,
-    }
+    })
 
 def root_redirect(request):
     if request.user.is_authenticated:
