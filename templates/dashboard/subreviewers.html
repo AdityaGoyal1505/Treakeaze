@@ -78,46 +78,81 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="invite">
             
+            <!-- Invitee Information -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Paper Selection -->
+                <!-- Email Input -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-file-alt text-gray-500 mr-2"></i>
-                        Select Paper Title
+                        <i class="fas fa-envelope text-gray-500 mr-2"></i>
+                        Subreviewer Email <span class="text-red-500">*</span>
                     </label>
-                    <select name="paper_id" id="paperTitleSelect" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" required>
-                        <option value="">Choose a paper...</option>
-                        {% for paper in papers %}
-                            <option value="{{ paper.id }}" data-paper-id="{{ paper.paper_id }}" data-track-id="{{ paper.track.id|default:'' }}">{{ paper.title }}</option>
-                        {% endfor %}
-                    </select>
+                    <input type="email" name="email" id="subreviewerEmail" placeholder="Enter email address" 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" required>
+                    <p class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        The invitation will be sent to this email address. Works for both registered and non-registered users.
+                    </p>
                 </div>
 
-                <!-- Paper ID Selection -->
+                <!-- Invitee Name Input -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-hashtag text-gray-500 mr-2"></i>
-                        Select Paper ID
+                        <i class="fas fa-user text-gray-500 mr-2"></i>
+                        Invitee Name (Optional)
                     </label>
-                    <select name="paper_id_input" id="paperIdSelect" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" required>
-                        <option value="">Choose a paper ID...</option>
-                        {% for paper in papers %}
-                            <option value="{{ paper.paper_id }}" data-paper-title="{{ paper.title }}">{{ paper.paper_id }}</option>
-                        {% endfor %}
-                    </select>
-                    <div id="paperIdError" class="text-red-500 text-sm mt-1 hidden">Paper ID does not match the selected paper title.</div>
+                    <input type="text" name="invitee_name" id="inviteeName" placeholder="Enter name (e.g., Dr. John Smith)" 
+                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
+                    <p class="text-xs text-gray-500 mt-1">
+                        <i class="fas fa-info-circle mr-1"></i>
+                        If left empty, we'll use the name from the user's account (if registered) or "Reviewer".
+                    </p>
                 </div>
             </div>
 
+            <!-- Paper Selection (Multi-select) -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-3">
+                    <i class="fas fa-file-alt text-gray-500 mr-2"></i>
+                    Select Paper(s) <span class="text-red-500">*</span>
+                </label>
+                <div class="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto border border-gray-200">
+                    <div class="mb-3 pb-3 border-b border-gray-200">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="selectAllPapers" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500 mr-3">
+                            <span class="text-sm font-medium text-gray-700">Select All Papers</span>
+                        </label>
+                    </div>
+                    <div class="space-y-2">
+                        {% for paper in papers %}
+                        <label class="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded transition duration-150">
+                            <input type="checkbox" name="paper_ids" value="{{ paper.id }}" 
+                                   class="paper-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500 mt-0.5 mr-3"
+                                   data-paper-id="{{ paper.paper_id }}" data-track-id="{{ paper.track.id|default:'' }}">
+                            <div>
+                                <span class="text-sm text-gray-900 font-medium">{{ paper.title }}</span>
+                                <span class="text-xs text-gray-500 block">ID: {{ paper.paper_id }}{% if paper.track %} | Track: {{ paper.track.name }}{% endif %}</span>
+                            </div>
+                        </label>
+                        {% empty %}
+                        <p class="text-sm text-gray-500">No papers available.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    You can select multiple papers to invite the same reviewer for all of them.
+                </p>
+            </div>
+
+            <!-- Track Selection (Optional) -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Track Selection -->
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">
                         <i class="fas fa-tag text-gray-500 mr-2"></i>
-                        Select Track (Optional)
+                        Override Track (Optional)
                     </label>
                     <select name="track" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-                        <option value="">Choose a track...</option>
+                        <option value="">Use paper's default track</option>
                         {% for track in tracks %}
                             <option value="{{ track.id }}">{{ track.name }} ({{ track.track_id }})</option>
                         {% endfor %}
@@ -125,41 +160,16 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <!-- Subreviewer Selection -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-user text-gray-500 mr-2"></i>
-                        Select Subreviewer
-                    </label>
-                    <select name="user_id" id="singleUserSelect" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-                        <option value="">Choose a subreviewer...</option>
-                        {% for user in all_users %}
-                            <option value="{{ user.id }}" data-email="{{ user.email }}">{{ user.get_full_name|default:user.username }} ({{ user.email }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <!-- Email Input -->
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-envelope text-gray-500 mr-2"></i>
-                        Subreviewer Email
-                    </label>
-                    <input type="email" name="email" id="subreviewerEmail" placeholder="Enter email address" 
-                           class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" required>
-                </div>
-            </div>
-
             <!-- Invitation Message -->
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                     <i class="fas fa-comment text-gray-500 mr-2"></i>
-                    Invitation Message
+                    Invitation Message (Preview)
                 </label>
                 <textarea name="template_body" 
-                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" 
-                          rows="4">{{ default_template }}</textarea>
+                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200 bg-gray-50" 
+                          rows="4" readonly>{{ default_template }}</textarea>
+                <p class="text-xs text-gray-500 mt-1">This is a preview. The actual email will include a personalized invitation link.</p>
             </div>
 
             <div class="flex justify-end">
@@ -182,28 +192,49 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="bulk_invite">
             
-            <!-- Paper and Track Selection for Bulk -->
+            <!-- Paper Selection (Multi-select) for Bulk -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-3">
+                    <i class="fas fa-file-alt text-gray-500 mr-2"></i>
+                    Select Paper(s) for Bulk Invitation <span class="text-red-500">*</span>
+                </label>
+                <div class="bg-gray-50 rounded-lg p-4 max-h-48 overflow-y-auto border border-gray-200">
+                    <div class="mb-3 pb-3 border-b border-gray-200">
+                        <label class="flex items-center cursor-pointer">
+                            <input type="checkbox" id="selectAllBulkPapers" class="rounded border-gray-300 text-green-600 focus:ring-green-500 mr-3">
+                            <span class="text-sm font-medium text-gray-700">Select All Papers</span>
+                        </label>
+                    </div>
+                    <div class="space-y-2">
+                        {% for paper in papers %}
+                        <label class="flex items-center cursor-pointer hover:bg-gray-100 p-2 rounded transition duration-150">
+                            <input type="checkbox" name="bulk_paper_ids" value="{{ paper.id }}" 
+                                   class="bulk-paper-checkbox rounded border-gray-300 text-green-600 focus:ring-green-500 mt-0.5 mr-3">
+                            <div>
+                                <span class="text-sm text-gray-900 font-medium">{{ paper.title }}</span>
+                                <span class="text-xs text-gray-500 block">ID: {{ paper.paper_id }}{% if paper.track %} | Track: {{ paper.track.name }}{% endif %}</span>
+                            </div>
+                        </label>
+                        {% empty %}
+                        <p class="text-sm text-gray-500">No papers available.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    All selected emails will be invited to review all selected papers.
+                </p>
+            </div>
+
+            <!-- Track Selection (Optional) -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">
-                        <i class="fas fa-file-alt text-gray-500 mr-2"></i>
-                        Select Paper for Bulk Invitation
-                    </label>
-                    <select name="paper_id" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" required>
-                        <option value="">Choose a paper...</option>
-                        {% for paper in papers %}
-                            <option value="{{ paper.id }}">{{ paper.title }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">
                         <i class="fas fa-tag text-gray-500 mr-2"></i>
-                        Select Track (Optional)
+                        Override Track (Optional)
                     </label>
-                    <select name="track" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200">
-                        <option value="">Choose a track...</option>
+                    <select name="track" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition duration-200">
+                        <option value="">Use paper's default track</option>
                         {% for track in tracks %}
                             <option value="{{ track.id }}">{{ track.name }} ({{ track.track_id }})</option>
                         {% endfor %}
@@ -211,54 +242,34 @@
                 </div>
             </div>
 
-            <!-- Users Table -->
+            <!-- Bulk Email List - Dynamic Inputs -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-3">
-                    <i class="fas fa-user-check text-gray-500 mr-2"></i>
-                    Select Users to Invite
-                </label>
-                <div class="bg-gray-50 rounded-lg p-4 max-h-64 overflow-y-auto">
-                    <table class="min-w-full">
-                        <thead class="bg-white sticky top-0">
-                            <tr>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    <input type="checkbox" id="selectAll" class="rounded border-gray-300 text-blue-600 focus:ring-blue-500">
-                                </th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            {% for user in all_users %}
-                            <tr class="hover:bg-gray-50">
-                                <td class="px-4 py-3">
-                                    <input type="checkbox" class="bulk-user-checkbox rounded border-gray-300 text-blue-600 focus:ring-blue-500" 
-                                           data-user-id="{{ user.id }}" 
-                                           data-user-name="{{ user.get_full_name|default:user.username }}" 
-                                           data-user-email="{{ user.email }}">
-                                </td>
-                                <td class="px-4 py-3 text-sm text-gray-900">{{ user.get_full_name|default:user.username }}</td>
-                                <td class="px-4 py-3 text-sm text-gray-500">{{ user.email }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="flex items-center justify-between mb-3">
+                    <label class="block text-sm font-medium text-gray-700">
+                        <i class="fas fa-envelope text-gray-500 mr-2"></i>
+                        Invitees <span class="text-red-500">*</span>
+                    </label>
+                    <span id="emailCount" class="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">0 invitee(s)</span>
                 </div>
-            </div>
-
-            <!-- Bulk Invitation List -->
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    <i class="fas fa-list text-gray-500 mr-2"></i>
-                    Bulk Invitation List
-                </label>
-                <textarea id="bulkInvitationList" name="bulk_invitation_list" 
-                          class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition duration-200" 
-                          rows="4" 
-                          placeholder="Format: Name <email>&#10;One per line. You can edit or paste here."></textarea>
+                
+                <!-- Email Entries Container -->
+                <div id="emailEntriesContainer" class="space-y-3">
+                    <!-- Email row template will be added here by JS -->
+                </div>
+                
+                <!-- Add More Button -->
+                <button type="button" id="addEmailBtn" 
+                        class="mt-3 w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-green-400 hover:text-green-600 hover:bg-green-50 transition duration-200 flex items-center justify-center">
+                    <i class="fas fa-plus mr-2"></i>
+                    Add Another Invitee
+                </button>
+                
+                <!-- Hidden textarea to store the formatted list for submission -->
+                <textarea id="bulkInvitationList" name="bulk_invitation_list" class="hidden"></textarea>
+                
                 <p class="text-xs text-gray-500 mt-2">
                     <i class="fas fa-info-circle mr-1"></i>
-                    You can select users above or paste/edit the list here. Format: <code class="bg-gray-100 px-1 rounded">Name &lt;email&gt;</code> per line.
+                    Works for both registered and non-registered users.
                 </p>
             </div>
 
@@ -298,8 +309,18 @@
                             <div class="text-sm font-medium text-gray-900">{{ invite.paper.title }}</div>
                         </td>
                         <td class="px-6 py-4">
+                            {% if invite.subreviewer %}
                             <div class="text-sm text-gray-900">{{ invite.subreviewer.get_full_name|default:invite.subreviewer.username }}</div>
                             <div class="text-sm text-gray-500">{{ invite.email }}</div>
+                            {% else %}
+                            <div class="text-sm text-gray-900">
+                                {{ invite.invitee_name|default:"(External Reviewer)" }}
+                                <span class="inline-flex items-center ml-1 px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-700">
+                                    <i class="fas fa-external-link-alt mr-1 text-xs"></i>Email Only
+                                </span>
+                            </div>
+                            <div class="text-sm text-gray-500">{{ invite.email }}</div>
+                            {% endif %}
                         </td>
                         <td class="px-6 py-4">
                             <div class="text-sm text-gray-900">{{ invite.invited_by.get_full_name|default:invite.invited_by.username }}</div>
@@ -337,178 +358,254 @@
 </div>
 
 <script>
-// Bulk invitation logic
-const checkboxes = document.querySelectorAll('.bulk-user-checkbox');
-const bulkList = document.getElementById('bulkInvitationList');
-const selectAllCheckbox = document.getElementById('selectAll');
-let selectedUsers = [];
+// Single Invite Form - Select All Papers
+const selectAllPapers = document.getElementById('selectAllPapers');
+const paperCheckboxes = document.querySelectorAll('.paper-checkbox');
 
-// Select all functionality
-selectAllCheckbox.addEventListener('change', function() {
-    checkboxes.forEach(cb => {
-        cb.checked = selectAllCheckbox.checked;
-        cb.dispatchEvent(new Event('change'));
+if (selectAllPapers) {
+    selectAllPapers.addEventListener('change', function() {
+        paperCheckboxes.forEach(cb => {
+            cb.checked = selectAllPapers.checked;
+        });
     });
-});
-
-// Individual checkbox functionality
-checkboxes.forEach(cb => {
-    cb.addEventListener('change', function() {
-        const user = {
-            id: cb.getAttribute('data-user-id'),
-            name: cb.getAttribute('data-user-name'),
-            email: cb.getAttribute('data-user-email')
-        };
-        
-        if (cb.checked) {
-            selectedUsers.push(user);
-        } else {
-            selectedUsers = selectedUsers.filter(u => u.id !== user.id);
-        }
-        
-        // Update select all checkbox
-        const checkedCount = document.querySelectorAll('.bulk-user-checkbox:checked').length;
-        selectAllCheckbox.checked = checkedCount === checkboxes.length;
-        selectAllCheckbox.indeterminate = checkedCount > 0 && checkedCount < checkboxes.length;
-        
-        // Update bulk list
-        bulkList.value = selectedUsers.map(u => `${u.name} <${u.email}>`).join('\n');
-    });
-});
-
-// Paper ID validation and auto-sync
-const paperTitleSelect = document.getElementById('paperTitleSelect');
-const paperIdSelect = document.getElementById('paperIdSelect');
-const paperIdError = document.getElementById('paperIdError');
-const submitButton = document.querySelector('button[type="submit"]');
-
-function syncPaperIdFromTitle() {
-    const selectedTitleOption = paperTitleSelect.options[paperTitleSelect.selectedIndex];
     
-    if (selectedTitleOption.value) {
-        const expectedPaperId = selectedTitleOption.getAttribute('data-paper-id');
+    // Update "Select All" checkbox state based on individual selections
+    paperCheckboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            const checkedCount = document.querySelectorAll('.paper-checkbox:checked').length;
+            selectAllPapers.checked = checkedCount === paperCheckboxes.length;
+            selectAllPapers.indeterminate = checkedCount > 0 && checkedCount < paperCheckboxes.length;
+        });
+    });
+}
+
+// Bulk Invite Form - Select All Papers
+const selectAllBulkPapers = document.getElementById('selectAllBulkPapers');
+const bulkPaperCheckboxes = document.querySelectorAll('.bulk-paper-checkbox');
+
+if (selectAllBulkPapers) {
+    selectAllBulkPapers.addEventListener('change', function() {
+        bulkPaperCheckboxes.forEach(cb => {
+            cb.checked = selectAllBulkPapers.checked;
+        });
+    });
+    
+    // Update "Select All" checkbox state based on individual selections
+    bulkPaperCheckboxes.forEach(cb => {
+        cb.addEventListener('change', function() {
+            const checkedCount = document.querySelectorAll('.bulk-paper-checkbox:checked').length;
+            selectAllBulkPapers.checked = checkedCount === bulkPaperCheckboxes.length;
+            selectAllBulkPapers.indeterminate = checkedCount > 0 && checkedCount < bulkPaperCheckboxes.length;
+        });
+    });
+}
+
+// ============================================
+// Dynamic Email Inputs for Bulk Invite
+// ============================================
+const emailEntriesContainer = document.getElementById('emailEntriesContainer');
+const addEmailBtn = document.getElementById('addEmailBtn');
+const bulkInvitationList = document.getElementById('bulkInvitationList');
+const emailCountDisplay = document.getElementById('emailCount');
+let emailRowCounter = 0;
+
+function createEmailRow(name = '', email = '') {
+    const rowId = ++emailRowCounter;
+    const row = document.createElement('div');
+    row.className = 'email-row flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 hover:border-gray-300 transition duration-150';
+    row.dataset.rowId = rowId;
+    
+    row.innerHTML = `
+        <div class="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="relative">
+                <input type="text" 
+                       class="email-name w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition duration-200 text-sm"
+                       placeholder="Name (optional)"
+                       value="${name}">
+            </div>
+            <div class="relative">
+                <input type="email" 
+                       class="email-address w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition duration-200 text-sm"
+                       placeholder="Email address *"
+                       value="${email}"
+                       required>
+                <div class="email-status absolute right-3 top-1/2 transform -translate-y-1/2 hidden">
+                    <i class="fas fa-check-circle text-green-500"></i>
+                </div>
+            </div>
+        </div>
+        <button type="button" class="remove-email-btn p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition duration-200" title="Remove">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    
+    // Add event listeners
+    const emailInput = row.querySelector('.email-address');
+    const nameInput = row.querySelector('.email-name');
+    const removeBtn = row.querySelector('.remove-email-btn');
+    const statusIcon = row.querySelector('.email-status');
+    
+    // Email validation on blur
+    emailInput.addEventListener('blur', function() {
+        const emailValue = emailInput.value.trim();
+        if (emailValue && emailValue.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+            emailInput.classList.remove('border-red-300', 'border-gray-300');
+            emailInput.classList.add('border-green-300');
+            statusIcon.classList.remove('hidden');
+        } else if (emailValue) {
+            emailInput.classList.remove('border-green-300', 'border-gray-300');
+            emailInput.classList.add('border-red-300');
+            statusIcon.classList.add('hidden');
+        } else {
+            emailInput.classList.remove('border-green-300', 'border-red-300');
+            emailInput.classList.add('border-gray-300');
+            statusIcon.classList.add('hidden');
+        }
+        updateBulkInvitationList();
+    });
+    
+    emailInput.addEventListener('input', updateBulkInvitationList);
+    nameInput.addEventListener('input', updateBulkInvitationList);
+    
+    // Remove button
+    removeBtn.addEventListener('click', function() {
+        row.classList.add('opacity-50', 'scale-95');
+        setTimeout(() => {
+            row.remove();
+            updateEmailCount();
+            updateBulkInvitationList();
+            // Add a new row if all are removed
+            if (emailEntriesContainer.children.length === 0) {
+                addEmailRow();
+            }
+        }, 150);
+    });
+    
+    return row;
+}
+
+function addEmailRow(name = '', email = '') {
+    const row = createEmailRow(name, email);
+    emailEntriesContainer.appendChild(row);
+    updateEmailCount();
+    
+    // Focus the email input of the new row
+    const emailInput = row.querySelector('.email-address');
+    if (!email) {
+        emailInput.focus();
+    }
+}
+
+function updateEmailCount() {
+    const rows = emailEntriesContainer.querySelectorAll('.email-row');
+    const validEmails = Array.from(rows).filter(row => {
+        const email = row.querySelector('.email-address').value.trim();
+        return email && email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/);
+    }).length;
+    
+    emailCountDisplay.textContent = `${validEmails} invitee(s)`;
+    
+    if (validEmails > 0) {
+        emailCountDisplay.classList.remove('bg-gray-100', 'text-gray-500');
+        emailCountDisplay.classList.add('bg-green-100', 'text-green-700');
+    } else {
+        emailCountDisplay.classList.remove('bg-green-100', 'text-green-700');
+        emailCountDisplay.classList.add('bg-gray-100', 'text-gray-500');
+    }
+}
+
+function updateBulkInvitationList() {
+    const rows = emailEntriesContainer.querySelectorAll('.email-row');
+    const entries = [];
+    
+    rows.forEach(row => {
+        const name = row.querySelector('.email-name').value.trim();
+        const email = row.querySelector('.email-address').value.trim();
         
-        // Auto-select the matching paper ID
-        for (let i = 0; i < paperIdSelect.options.length; i++) {
-            if (paperIdSelect.options[i].value === expectedPaperId) {
-                paperIdSelect.selectedIndex = i;
-                paperIdSelect.classList.remove('border-red-500');
-                paperIdSelect.classList.add('border-green-500');
-                paperIdError.classList.add('hidden');
-                break;
+        if (email) {
+            if (name) {
+                entries.push(`${name} <${email}>`);
+            } else {
+                entries.push(email);
             }
         }
-    } else {
-        paperIdSelect.selectedIndex = 0;
-        paperIdSelect.classList.remove('border-red-500', 'border-green-500');
-        paperIdError.classList.add('hidden');
-    }
-}
-
-function syncPaperTitleFromId() {
-    const selectedIdOption = paperIdSelect.options[paperIdSelect.selectedIndex];
-    
-    if (selectedIdOption.value) {
-        const selectedPaperId = selectedIdOption.value;
-        
-        // Auto-select the matching paper title
-        for (let i = 0; i < paperTitleSelect.options.length; i++) {
-            if (paperTitleSelect.options[i].getAttribute('data-paper-id') === selectedPaperId) {
-                paperTitleSelect.selectedIndex = i;
-                paperIdSelect.classList.remove('border-red-500');
-                paperIdSelect.classList.add('border-green-500');
-                paperIdError.classList.add('hidden');
-                break;
-            }
-        }
-    } else {
-        paperTitleSelect.selectedIndex = 0;
-        paperIdSelect.classList.remove('border-red-500', 'border-green-500');
-        paperIdError.classList.add('hidden');
-    }
-}
-
-function validatePaperId() {
-    const selectedTitleOption = paperTitleSelect.options[paperTitleSelect.selectedIndex];
-    const selectedIdOption = paperIdSelect.options[paperIdSelect.selectedIndex];
-    
-    if (selectedTitleOption.value && selectedIdOption.value) {
-        const expectedPaperId = selectedTitleOption.getAttribute('data-paper-id');
-        const selectedPaperId = selectedIdOption.value;
-        
-        if (expectedPaperId === selectedPaperId) {
-            paperIdError.classList.add('hidden');
-            paperIdSelect.classList.remove('border-red-500');
-            paperIdSelect.classList.add('border-green-500');
-            submitButton.disabled = false;
-        } else {
-            paperIdError.classList.remove('hidden');
-            paperIdSelect.classList.add('border-red-500');
-            paperIdSelect.classList.remove('border-green-500');
-            submitButton.disabled = true;
-        }
-    } else {
-        paperIdError.classList.add('hidden');
-        paperIdSelect.classList.remove('border-red-500', 'border-green-500');
-        submitButton.disabled = false;
-    }
-}
-
-function updatePaperIdOptions() {
-    const selectedTrack = document.querySelector('select[name="track"]').value;
-    const paperIdSelect = document.getElementById('paperIdSelect');
-    
-    // Clear current options
-    paperIdSelect.innerHTML = '<option value="">Choose a paper ID...</option>';
-    
-    // Get all paper options
-    const paperOptions = document.querySelectorAll('#paperTitleSelect option[data-paper-id]');
-    
-    paperOptions.forEach(option => {
-        const paperId = option.getAttribute('data-paper-id');
-        const paperTitle = option.textContent;
-        const paperTrack = option.getAttribute('data-track-id') || '';
-        
-        // If track is selected, only show papers from that track
-        if (!selectedTrack || paperTrack === selectedTrack) {
-            const newOption = document.createElement('option');
-            newOption.value = paperId;
-            newOption.textContent = paperId;
-            newOption.setAttribute('data-paper-title', paperTitle);
-            paperIdSelect.appendChild(newOption);
-        }
     });
     
-    validatePaperId();
+    bulkInvitationList.value = entries.join('\n');
+    updateEmailCount();
 }
 
-paperTitleSelect.addEventListener('change', function() {
-    syncPaperIdFromTitle();
-    validatePaperId();
-});
+// Initialize with one empty row
+if (emailEntriesContainer) {
+    addEmailRow();
+    
+    // Add more button
+    addEmailBtn.addEventListener('click', function() {
+        addEmailRow();
+    });
+}
 
-paperIdSelect.addEventListener('change', function() {
-    syncPaperTitleFromId();
-    validatePaperId();
-});
+// Form Validation - Single Invite
+const singleInviteForm = document.getElementById('singleInviteForm');
+if (singleInviteForm) {
+    singleInviteForm.addEventListener('submit', function(e) {
+        const email = document.getElementById('subreviewerEmail').value.trim();
+        const checkedPapers = document.querySelectorAll('.paper-checkbox:checked');
+        
+        if (!email) {
+            e.preventDefault();
+            alert('Please enter an email address.');
+            return;
+        }
+        
+        if (checkedPapers.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one paper.');
+            return;
+        }
+    });
+}
 
-document.querySelector('select[name="track"]').addEventListener('change', updatePaperIdOptions);
+// Form Validation - Bulk Invite
+const bulkInviteForm = document.getElementById('bulkInviteForm');
+if (bulkInviteForm) {
+    bulkInviteForm.addEventListener('submit', function(e) {
+        // Sync the list before validation
+        updateBulkInvitationList();
+        
+        const emailList = bulkInvitationList.value.trim();
+        const checkedPapers = document.querySelectorAll('.bulk-paper-checkbox:checked');
+        
+        if (checkedPapers.length === 0) {
+            e.preventDefault();
+            alert('Please select at least one paper.');
+            return;
+        }
+        
+        if (!emailList) {
+            e.preventDefault();
+            alert('Please add at least one invitee.');
+            return;
+        }
+    });
+}
 
-// Auto-sync email when subreviewer is selected
-const singleUserSelect = document.getElementById('singleUserSelect');
+// Email suggestions - check for valid email format on blur (single invite)
 const subreviewerEmail = document.getElementById('subreviewerEmail');
-
-singleUserSelect.addEventListener('change', function() {
-    const selectedOption = singleUserSelect.options[singleUserSelect.selectedIndex];
-    
-    if (selectedOption.value) {
-        const email = selectedOption.getAttribute('data-email');
-        subreviewerEmail.value = email;
-        subreviewerEmail.classList.add('border-green-500');
-    } else {
-        subreviewerEmail.value = '';
-        subreviewerEmail.classList.remove('border-green-500');
-    }
-});
+if (subreviewerEmail) {
+    subreviewerEmail.addEventListener('blur', function() {
+        const email = subreviewerEmail.value.trim();
+        if (email && !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
+            subreviewerEmail.classList.add('border-yellow-500');
+            subreviewerEmail.classList.remove('border-gray-300');
+        } else if (email) {
+            subreviewerEmail.classList.add('border-green-500');
+            subreviewerEmail.classList.remove('border-yellow-500', 'border-gray-300');
+        } else {
+            subreviewerEmail.classList.remove('border-yellow-500', 'border-green-500');
+            subreviewerEmail.classList.add('border-gray-300');
+        }
+    });
+}
 </script>
 {% endblock %} 

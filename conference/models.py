@@ -431,9 +431,10 @@ class SubreviewerInvite(models.Model):
         ('cancelled', 'Cancelled'),
     ]
     paper = models.ForeignKey(Paper, on_delete=models.CASCADE, related_name='subreviewer_invites')
-    subreviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='subreviewer_invites')
+    subreviewer = models.ForeignKey(User, on_delete=models.CASCADE, related_name='subreviewer_invites', null=True, blank=True)
     invited_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='subreviewer_invited_by')
     email = models.EmailField()
+    invitee_name = models.CharField(max_length=255, blank=True, help_text="Name of the invitee (for non-registered users)")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='invited')
     requested_at = models.DateTimeField(auto_now_add=True)
     responded_at = models.DateTimeField(null=True, blank=True)

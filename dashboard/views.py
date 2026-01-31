@@ -1989,16 +1989,22 @@ def subreviewers(request, conf_id):
     if search_query:
         all_users = all_users.filter(username__icontains=search_query) | all_users.filter(email__icontains=search_query)
 
-    # Handle invite action
+    tracks = conference.tracks.all()
+
     message = None
     message_type = None
     if request.method == 'POST':
         action = request.POST.get('action')
         if action == 'invite':
-            paper_id = request.POST.get('paper_id')
-            paper_id_input = request.POST.get('paper_id_input', '').strip()
-            user_id = request.POST.get('user_id')
-            email = request.POST.get('email')
+            paper_ids = request.POST.getlist('paper_ids')
+            # Fallback to single paper_id if paper_ids not provided
+            if not paper_ids:
+                single_paper_id = request.POST.get('paper_id')
+                if single_paper_id:
+                    paper_ids = [single_paper_id]
+            
+            email = request.POST.get('email', '').strip()
+            invitee_name = request.POST.get('invitee_name', '').strip()
             template_body = request.POST.get('template_body')
             track_id = request.POST.get('track')
             track = None
@@ -2008,150 +2014,178 @@ def subreviewers(request, conf_id):
                 except Exception:
                     track = None
             
-            # Validate paper ID
-            if paper_id and paper_id_input:
-                try:
-                    paper = Paper.objects.get(id=paper_id)
-                    if paper.paper_id != paper_id_input:
-                        message = f"Paper ID '{paper_id_input}' does not match the selected paper title. Expected: {paper.paper_id}"
-                        message_type = 'error'
-                        return render(request, 'dashboard/subreviewers.html', {
-                            'conference': conference,
-                            'papers': papers,
-                            'tracks': tracks,
-                            'all_users': all_users,
-                            'invites': invites,
-                            'message': message,
-                            'message_type': message_type,
-                            'default_template': default_template
-                        })
-                except Paper.DoesNotExist:
-                    message = "Selected paper not found."
-                    message_type = 'error'
-                    return render(request, 'dashboard/subreviewers.html', {
-                        'conference': conference,
-                        'papers': papers,
-                        'tracks': tracks,
-                        'all_users': all_users,
-                        'invites': invites,
-                        'message': message,
-                        'message_type': message_type,
-                        'default_template': default_template
-                    })
-            
-            # If not specified, use the paper's track
-            if not track and paper_id:
-                try:
-                    paper = Paper.objects.get(id=paper_id)
-                    track = paper.track
-                except Exception:
-                    track = None
-            if paper_id and user_id and email:
-                paper = Paper.objects.get(id=paper_id)
-                subreviewer = User.objects.get(id=user_id)
-                # Prevent duplicate invite
-                if SubreviewerInvite.objects.filter(paper=paper, subreviewer=subreviewer).exists():
-                    message = f"This subreviewer has already been invited for this paper."
-                    message_type = 'error'
-                else:
-                    token = get_random_string(48)
-                    invite = SubreviewerInvite.objects.create(
-                        paper=paper,
-                        subreviewer=subreviewer,
-                        invited_by=request.user,
-                        email=email,
-                        token=token,
-                        track=track
-                    )
-                    UserConferenceRole.objects.get_or_create(user=subreviewer, conference=conference, role='subreviewer')
-                    track_info = f"\nTrack: {track.name} ({track.track_id})" if track else ""
-                    body = f"Dear {subreviewer.get_full_name() or subreviewer.username},\n\nYou have been assigned a paper for review (\"{paper.title}\") in the conference '{conference.name}'.{track_info}\nPlease log in to your dashboard to accept or reject the request.\n\nBest regards,\n{request.user.get_full_name() or request.user.username}\nConference Chair/PC Member"
-                    send_mail(
-                        subject=f"Paper Review Assignment: '{paper.title}'",
-                        message=body,
-                        from_email=None,
-                        recipient_list=[email],
-                    )
-                    PCEmailLog.objects.create(
-                        subject=f"Paper Review Assignment: '{paper.title}'",
-                        body=body,
-                        recipients=email,
-                        conference=conference,
-                        sender=request.user,
-                        attachment_name='',
-                    )
-                    message = f"Assignment email sent to {subreviewer.get_full_name() or subreviewer.username} for paper '{paper.title}'."
-                    message_type = 'success'
-            else:
-                message = "Please select a paper, subreviewer, and provide an email."
+            # Validate email
+            if not email:
+                message = "Please provide an email address."
                 message_type = 'error'
+            elif not paper_ids:
+                message = "Please select at least one paper."
+                message_type = 'error'
+            else:
+                # Check if user with this email exists in the system
+                existing_user = User.objects.filter(email=email).first()
+                
+                success_count = 0
+                error_messages = []
+                
+                for paper_id in paper_ids:
+                    try:
+                        paper = Paper.objects.get(id=paper_id)
+                        
+                        # If track not specified, use the paper's track
+                        paper_track = track if track else paper.track
+                        
+                        # Check for duplicate invite (by email for this paper)
+                        if SubreviewerInvite.objects.filter(paper=paper, email=email).exists():
+                            error_messages.append(f"Already invited for paper '{paper.title}'")
+                            continue
+                        
+                        token = get_random_string(48)
+                        invite = SubreviewerInvite.objects.create(
+                            paper=paper,
+                            subreviewer=existing_user,  # Can be None for non-registered users
+                            invited_by=request.user,
+                            email=email,
+                            invitee_name=invitee_name,
+                            token=token,
+                            track=paper_track
+                        )
+                        
+                        # If user exists, add subreviewer role
+                        if existing_user:
+                            UserConferenceRole.objects.get_or_create(user=existing_user, conference=conference, role='subreviewer')
+                        
+                        # Send email
+                        recipient_name = invitee_name if invitee_name else (existing_user.get_full_name() if existing_user else 'Reviewer')
+                        track_info = f"\nTrack: {paper_track.name} ({paper_track.track_id})" if paper_track else ""
+                        body = f"Dear {recipient_name},\n\nYou have been invited to review the paper \"{paper.title}\" for the conference '{conference.name}'.{track_info}\n\nPlease click the following link to accept or decline this invitation:\n{request.build_absolute_uri('/conference/subreviewer/respond/' + token + '/')}\n\nBest regards,\n{request.user.get_full_name() or request.user.username}\nConference Chair/PC Member"
+                        send_mail(
+                            subject=f"Paper Review Invitation: '{paper.title}'",
+                            message=body,
+                            from_email=None,
+                            recipient_list=[email],
+                        )
+                        PCEmailLog.objects.create(
+                            subject=f"Paper Review Invitation: '{paper.title}'",
+                            body=body,
+                            recipients=email,
+                            conference=conference,
+                            sender=request.user,
+                            attachment_name='',
+                        )
+                        success_count += 1
+                        
+                    except Paper.DoesNotExist:
+                        error_messages.append(f"Paper ID {paper_id} not found")
+                    except Exception as e:
+                        error_messages.append(f"Error for paper {paper_id}: {str(e)}")
+                
+                if success_count > 0:
+                    message = f"Invitation email sent to {email} for {success_count} paper(s)."
+                    if error_messages:
+                        message += "\n" + "\n".join(error_messages[:3])
+                        if len(error_messages) > 3:
+                            message += f"\n... and {len(error_messages) - 3} more issues."
+                    message_type = 'success'
+                else:
+                    message = "No invitations sent. " + "; ".join(error_messages[:3])
+                    message_type = 'error'
         elif action == 'bulk_invite':
-            paper_id = request.POST.get('paper_id')
+            # Get multiple paper IDs (for multi-paper selection)
+            paper_ids = request.POST.getlist('bulk_paper_ids')
+            # Fallback to single paper_id if bulk_paper_ids not provided
+            if not paper_ids:
+                single_paper_id = request.POST.get('paper_id')
+                if single_paper_id:
+                    paper_ids = [single_paper_id]
+            
             track_id = request.POST.get('track')
             bulk_list = request.POST.get('bulk_invitation_list', '').strip().split('\n')
-            paper = Paper.objects.get(id=paper_id)
             
-            # Get track if specified
-            track = None
-            if track_id:
-                try:
-                    track = tracks.get(id=track_id)
-                except Exception:
-                    track = None
-            
-            # If not specified, use the paper's track
-            if not track and paper.track:
-                track = paper.track
-            
-            success_count = 0
-            error_count = 0
-            error_messages = []
-            for line in bulk_list:
-                if not line.strip():
-                    continue
-                # Format: Name <email>
-                if '<' in line and '>' in line:
-                    name = line.split('<')[0].strip()
-                    email = line.split('<')[1].split('>')[0].strip()
-                else:
-                    error_messages.append(f'Invalid format: {line}')
-                    error_count += 1
-                    continue
-                try:
-                    subreviewer = User.objects.filter(email=email).first()
-                    if not subreviewer:
-                        error_messages.append(f'User not found: {email}')
+            if not paper_ids:
+                message = "Please select at least one paper."
+                message_type = 'error'
+            elif not bulk_list or not any(line.strip() for line in bulk_list):
+                message = "Please provide at least one email in the invitation list."
+                message_type = 'error'
+            else:
+                # Get papers
+                papers_to_invite = Paper.objects.filter(id__in=paper_ids, conference=conference)
+                
+                # Get track if specified
+                track = None
+                if track_id:
+                    try:
+                        track = tracks.get(id=track_id)
+                    except Exception:
+                        track = None
+                
+                success_count = 0
+                error_count = 0
+                error_messages = []
+                
+                for line in bulk_list:
+                    if not line.strip():
+                        continue
+                    # Format: Name <email> or just email
+                    if '<' in line and '>' in line:
+                        name = line.split('<')[0].strip()
+                        email = line.split('<')[1].split('>')[0].strip()
+                    elif '@' in line:
+                        # Just email without name
+                        email = line.strip()
+                        name = ''
+                    else:
+                        error_messages.append(f'Invalid format: {line}')
                         error_count += 1
                         continue
-                    # Check for duplicate invite
-                    if SubreviewerInvite.objects.filter(paper=paper, subreviewer=subreviewer).exists():
-                        error_messages.append(f'Already invited: {email}')
-                        error_count += 1
-                        continue
-                    token = get_random_string(48)
-                    invite = SubreviewerInvite.objects.create(
-                        paper=paper,
-                        subreviewer=subreviewer,
-                        invited_by=request.user,
-                        email=email,
-                        token=token,
-                        track=track
-                    )
-                    UserConferenceRole.objects.get_or_create(user=subreviewer, conference=conference, role='subreviewer')
-                    track_info = f"\nTrack: {track.name} ({track.track_id})" if track else ""
-                    subject = f"Paper Review Assignment: '{paper.title}'"
-                    message_body = f"Dear {name},\n\nYou have been assigned a paper for review (\"{paper.title}\") in the conference '{conference.name}'.{track_info}\nPlease log in to your dashboard to accept or reject the request.\n\nBest regards,\n{request.user.get_full_name() or request.user.username}\nConference Chair/PC Member"
-                    send_mail(subject, message_body, None, [email])
-                    success_count += 1
-                except Exception as e:
-                    error_messages.append(f'Error for {email}: {str(e)}')
-                    error_count += 1
-            message = f"Bulk invitation complete. {success_count} sent, {error_count} errors."
-            if error_messages:
-                message += '\n' + '\n'.join(error_messages[:5])
-                if len(error_messages) > 5:
-                    message += f'\n... and {len(error_messages) - 5} more errors.'
-            message_type = 'success' if success_count > 0 else 'error'
+                    
+                    # Check if user with this email exists
+                    existing_user = User.objects.filter(email=email).first()
+                    
+                    for paper in papers_to_invite:
+                        try:
+                            # Use paper's track if no track specified
+                            paper_track = track if track else paper.track
+                            
+                            # Check for duplicate invite (by email for this paper)
+                            if SubreviewerInvite.objects.filter(paper=paper, email=email).exists():
+                                error_messages.append(f'Already invited {email} for paper "{paper.title[:30]}..."')
+                                error_count += 1
+                                continue
+                            
+                            token = get_random_string(48)
+                            SubreviewerInvite.objects.create(
+                                paper=paper,
+                                subreviewer=existing_user,  # Can be None for non-registered users
+                                invited_by=request.user,
+                                email=email,
+                                invitee_name=name,
+                                token=token,
+                                track=paper_track
+                            )
+                            
+                            # If user exists, add subreviewer role
+                            if existing_user:
+                                UserConferenceRole.objects.get_or_create(user=existing_user, conference=conference, role='subreviewer')
+                            
+                            # Send email
+                            recipient_name = name if name else (existing_user.get_full_name() if existing_user else 'Reviewer')
+                            track_info = f"\nTrack: {paper_track.name} ({paper_track.track_id})" if paper_track else ""
+                            subject = f"Paper Review Invitation: '{paper.title}'"
+                            message_body = f"Dear {recipient_name},\n\nYou have been invited to review the paper \"{paper.title}\" for the conference '{conference.name}'.{track_info}\n\nPlease click the following link to accept or decline this invitation:\n{request.build_absolute_uri('/conference/subreviewer/respond/' + token + '/')}\n\nBest regards,\n{request.user.get_full_name() or request.user.username}\nConference Chair/PC Member"
+                            send_mail(subject, message_body, None, [email])
+                            success_count += 1
+                        except Exception as e:
+                            error_messages.append(f'Error for {email}: {str(e)}')
+                            error_count += 1
+                
+                message = f"Bulk invitation complete. {success_count} sent, {error_count} errors."
+                if error_messages:
+                    message += '\n' + '\n'.join(error_messages[:5])
+                    if len(error_messages) > 5:
+                        message += f'\n... and {len(error_messages) - 5} more errors.'
+                message_type = 'success' if success_count > 0 else 'error'
 
     # List all invites for this conference
     invites = SubreviewerInvite.objects.filter(paper__conference=conference).select_related('paper', 'subreviewer', 'invited_by')
