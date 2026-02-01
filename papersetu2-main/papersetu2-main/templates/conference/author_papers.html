@@ -43,31 +43,10 @@
                     </td>
                     <td class="px-4 py-2 whitespace-nowrap">{{ paper.submitted_at|date:"M d, Y H:i" }}</td>
                     <td class="px-4 py-2 whitespace-nowrap">
-                        {% if paper.status == 'accepted' and not paper.is_paid %}
-                            <button id="pay-btn-{{ paper.id }}" class="bg-green-600 hover:bg-green-700 text-white px-4 py-1 rounded">Pay Now</button>
-                            <script src="https://js.stripe.com/v3/"></script>
-                            <script>
-                            document.getElementById('pay-btn-{{ paper.id }}').onclick = function() {
-                                fetch("{% url 'conference:create_checkout_session' paper.id %}", {
-                                    method: "POST",
-                                    headers: {
-                                        "X-CSRFToken": "{{ csrf_token }}",
-                                        "Content-Type": "application/json"
-                                    }
-                                })
-                                .then(response => response.json())
-                                .then(data => {
-                                    if (data.id) {
-                                        var stripe = Stripe(data.stripe_public_key);
-                                        stripe.redirectToCheckout({ sessionId: data.id });
-                                    } else {
-                                        alert(data.error || "Error creating payment session.");
-                                    }
-                                });
-                            }
-                            </script>
-                        {% elif paper.status == 'accepted' and paper.is_paid %}
-                            <span class="ml-2 text-green-700 font-semibold">Paid</span>
+                        {{% if paper.status == 'accepted' %}
+                            <span class="text-green-700 font-semibold">
+                                Accepted
+                            </span>
                         {% else %}
                             <span class="text-gray-400">-</span>
                         {% endif %}
