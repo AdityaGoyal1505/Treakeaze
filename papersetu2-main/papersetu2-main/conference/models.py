@@ -144,7 +144,7 @@ class Paper(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='papers')
     conference = models.ForeignKey(Conference, on_delete=models.CASCADE, related_name='papers')
     submitted_at = models.DateTimeField(auto_now_add=True)
-    paper_id = models.CharField(max_length=20, unique=True, blank=True, null=True, help_text="Unique Paper ID for search/reference")
+    paper_id = models.CharField(max_length=32, unique=True, blank=True, null=True, help_text="Unique Paper ID for search/reference")
     track = models.ForeignKey(Track, on_delete=models.SET_NULL, null=True, blank=True, related_name='papers')
     
     STATUS_CHOICES = [
