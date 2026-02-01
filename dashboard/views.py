@@ -3825,11 +3825,41 @@ def manage_submission(request, conf_id, submission_id):
                 # Get author's name and email
                 author_name = corresponding_author.first_name if hasattr(corresponding_author, 'first_name') else corresponding_author.get_full_name()
                 author_email = corresponding_author.email if hasattr(corresponding_author, 'email') else corresponding_author.email
+                chair_name = conference.chair.get_full_name() if conference.chair else 'Conference Team'
                 
-                # Prepare email content based on status
-                if decision == 'accept':
-                    subject = f"Congratulations! Your Paper Has Been Accepted - {conference.name}"
-                    body = f"""Dear {author_name},
+                # Check for custom email body
+                custom_email_body = request.POST.get('custom_email_body', '').strip()
+                
+                # Decision display text
+                decision_text = {
+                    'accept': 'Accepted',
+                    'reject': 'Rejected',
+                    'under_review': 'Under Review'
+                }.get(decision, decision.title().replace('_', ' '))
+                
+                if custom_email_body:
+                    # Use custom email body with placeholder replacement
+                    body = custom_email_body.format(
+                        author_name=author_name,
+                        paper_title=paper.title,
+                        paper_id=paper.paper_id,
+                        conference_name=conference.name,
+                        decision=decision_text,
+                        chair_name=chair_name
+                    )
+                    # Generate subject based on decision
+                    if decision == 'accept':
+                        subject = f"Congratulations! Your Paper Has Been Accepted - {conference.name}"
+                    elif decision == 'reject':
+                        subject = f"Paper Decision Notification - {conference.name}"
+                    else:
+                        subject = f"Paper Status Update - {decision_text} - {conference.name}"
+                else:
+                    # Use default email templates
+                    # Prepare email content based on status
+                    if decision == 'accept':
+                        subject = f"Congratulations! Your Paper Has Been Accepted - {conference.name}"
+                        body = f"""Dear {author_name},
 
 We are delighted to inform you that your paper has been ACCEPTED for {conference.name}.
 
@@ -3854,11 +3884,11 @@ We look forward to seeing you at {conference.name}!
 
 Best regards,
 {conference.name} Program Committee
-Conference Chair: {conference.chair.get_full_name() if conference.chair else 'Conference Team'}"""
-                
-                elif decision == 'reject':
-                    subject = f"Paper Decision Notification - {conference.name}"
-                    body = f"""Dear {author_name},
+Conference Chair: {chair_name}"""
+                    
+                    elif decision == 'reject':
+                        subject = f"Paper Decision Notification - {conference.name}"
+                        body = f"""Dear {author_name},
 
 Thank you for submitting your paper to {conference.name}. After careful review by our program committee, we regret to inform you that your paper has not been accepted for this conference.
 
@@ -3876,11 +3906,11 @@ We appreciate your interest in {conference.name} and hope you will consider subm
 
 Best regards,
 {conference.name} Program Committee
-Conference Chair: {conference.chair.get_full_name() if conference.chair else 'Conference Team'}"""
-                
-                elif decision == 'under_review':
-                    subject = f"Paper Status Update - Under Review - {conference.name}"
-                    body = f"""Dear {author_name},
+Conference Chair: {chair_name}"""
+                    
+                    elif decision == 'under_review':
+                        subject = f"Paper Status Update - Under Review - {conference.name}"
+                        body = f"""Dear {author_name},
 
 This is to notify you that your paper submission status has been updated.
 
@@ -3900,7 +3930,7 @@ Thank you for your patience during the review process.
 
 Best regards,
 {conference.name} Program Committee
-Conference Chair: {conference.chair.get_full_name() if conference.chair else 'Conference Team'}"""
+Conference Chair: {chair_name}"""
                 
                 try:
                     send_mail(
