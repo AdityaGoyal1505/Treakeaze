@@ -172,35 +172,40 @@ class Paper(models.Model):
         pass
 
     def save(self, *args, **kwargs):
-        # If already generated, never regenerate
-        if self.paper_id:
-            return super().save(*args, **kwargs)
+        # Generate paper_id ONLY on first insert
+        if self._state.adding and not self.paper_id:
+            acronym = (self.conference.acronym or "CONF").upper()
     
-        acronym = (self.conference.acronym or 'CONF').upper()
-        year = self.conference.start_date.year if self.conference.start_date else None
-        yy = str(year)[-2:] if year else 'XX'
-        prefix = f"{acronym}{yy}"
-    
-        with transaction.atomic():
-            last = (
-                Paper.objects
-                .select_for_update()
-                .filter(conference=self.conference, paper_id__startswith=prefix)
-                .order_by('-paper_id')   # ✅ CRITICAL FIX
-                .first()
+            year = (
+                self.conference.start_date.year
+                if self.conference.start_date
+                else "XXXX"
             )
     
-            if last:
-                match = re.search(rf"{prefix}(\d+)", last.paper_id)
-                last_serial = int(match.group(1)) if match else 0
-                serial = last_serial + 1
-            else:
-                serial = 1
+            # Prefix exactly matching stored IDs
+            prefix = f"{acronym}-{year}"
     
-            self.paper_id = f"{prefix}{serial:04d}"
+            with transaction.atomic():
+                last = (
+                    Paper.objects
+                    .select_for_update()
+                    .filter(conference=self.conference, paper_id__startswith=prefix)
+                    .order_by("-paper_id")
+                    .first()
+                )
     
-            return super().save(*args, **kwargs)
-
+                if last:
+                    # ✅ REGEX-BASED extraction (fixes 99 limit bug)
+                    match = re.search(rf"{prefix}(\d+)$", last.paper_id)
+                    last_serial = int(match.group(1)) if match else 0
+                    serial = last_serial + 1
+                else:
+                    serial = 1
+    
+                # Supports 0001 → 9999+ safely
+                self.paper_id = f"{prefix}{serial:04d}"
+    
+        return super().save(*args, **kwargs)
         
 class Review(models.Model):
     paper = models.ForeignKey(Paper, on_delete=models.CASCADE, related_name='reviews')
