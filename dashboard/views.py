@@ -2057,8 +2057,27 @@ def subreviewers(request, conf_id):
                         
                         # Send email
                         recipient_name = invitee_name if invitee_name else (existing_user.get_full_name() if existing_user else 'Reviewer')
-                        track_info = f"\nTrack: {paper_track.name} ({paper_track.track_id})" if paper_track else ""
-                        body = f"Dear {recipient_name},\n\nYou have been invited to review the paper \"{paper.title}\" for the conference '{conference.name}'.{track_info}\n\nPlease click the following link to accept or decline this invitation:\n{request.build_absolute_uri('/conference/subreviewer/respond/' + token + '/')}\n\nBest regards,\n{request.user.get_full_name() or request.user.username}\nConference Chair/PC Member"
+                        track_info = f"Track: {paper_track.name} ({paper_track.track_id})" if paper_track else ""
+                        invite_url = request.build_absolute_uri('/conference/subreviewer/respond/' + token + '/')
+                        
+                        # Use custom template body if provided, otherwise use default
+                        if template_body and template_body.strip():
+                            body = template_body
+                            # Replace placeholders
+                            body = body.replace('{{ subreviewer_name }}', recipient_name)
+                            body = body.replace('{{ paper_title }}', paper.title)
+                            body = body.replace('{{ invite_url }}', invite_url)
+                            body = body.replace('{{ conference_name }}', conference.name)
+                            body = body.replace('{{ track_info }}', track_info)
+                            # Also support alternate bracket formats
+                            body = body.replace('{{subreviewer_name}}', recipient_name)
+                            body = body.replace('{{paper_title}}', paper.title)
+                            body = body.replace('{{invite_url}}', invite_url)
+                            body = body.replace('{{conference_name}}', conference.name)
+                            body = body.replace('{{track_info}}', track_info)
+                        else:
+                            body = f"Dear {recipient_name},\n\nYou have been invited to review the paper \"{paper.title}\" for the conference '{conference.name}'.\n{track_info}\n\nPlease click the following link to accept or decline this invitation:\n{invite_url}\n\nBest regards,\n{request.user.get_full_name() or request.user.username}\nConference Chair/PC Member"
+                        
                         send_mail(
                             subject=f"Paper Review Invitation: '{paper.title}'",
                             message=body,
