@@ -14,12 +14,18 @@
             {% if role_links %}
                 <div class="flex flex-col gap-4 mb-6">
                     {% for role in role_links %}
-                        <a href="{{ role.url }}" class="w-full py-4 px-6 rounded-lg text-lg font-semibold shadow bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-3 transition-colors">
-                            {% if role.role == 'chair' %}<i class="fas fa-crown"></i>{% endif %}
-                            {% if role.role == 'author' %}<i class="fas fa-user-edit"></i>{% endif %}
-                            {% if role.role == 'reviewer' %}<i class="fas fa-user-check"></i>{% endif %}
-                            {{ role.label }}
-                        </a>
+                        {# Hide AUTHOR submission button if conference is completed #}
+                        {% if role.role == 'author' and conference.status == 'completed' %}
+                            {# Do nothing (submission disabled) #}
+                        {% else %}
+                            <a href="{{ role.url }}"
+                               class="w-full py-4 px-6 rounded-lg text-lg font-semibold shadow bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-3 transition-colors">
+                                {% if role.role == 'chair' %}<i class="fas fa-crown"></i>{% endif %}
+                                {% if role.role == 'author' %}<i class="fas fa-user-edit"></i>{% endif %}
+                                {% if role.role == 'reviewer' %}<i class="fas fa-user-check"></i>{% endif %}
+                                {{ role.label }}
+                            </a>
+                        {% endif %}
                     {% endfor %}
                 </div>
                 <a href="{% url 'conference:author_papers' conference.id %}" class="w-full py-3 px-6 rounded-lg text-lg font-semibold shadow bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center gap-3 transition-colors">
