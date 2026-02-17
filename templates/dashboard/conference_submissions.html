@@ -232,6 +232,7 @@
                                        class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500">
                             </th>
                             {% endif %}
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Paper ID</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Track ID</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Track Name</th>
@@ -242,7 +243,7 @@
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subreviewer Recommendation</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Plagiarism %</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+
                         </tr>
                     </thead>
                     <tbody class="bg-white divide-y divide-gray-200">
@@ -259,6 +260,12 @@
                                        onchange="updateSelectedCount()">
                             </td>
                             {% endif %}
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                <a href="{% url 'dashboard:manage_submission' conference.id paper.id %}" 
+                                   class="text-blue-600 hover:text-blue-800 font-medium">
+                                    Manage
+                                </a>
+                            </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-700">{{ paper.paper_id }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">{{ paper.track.track_id|default:'-' }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">{{ paper.track.name|default:'-' }}</td>
@@ -349,12 +356,7 @@
                                     <span class="text-gray-400">-</span>
                                 {% endif %}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <a href="{% url 'dashboard:manage_submission' conference.id paper.id %}" 
-                                   class="text-blue-600 hover:text-blue-800 font-medium">
-                                    Manage
-                                </a>
-                            </td>
+
                         </tr>
                         {% empty %}
                         <tr>

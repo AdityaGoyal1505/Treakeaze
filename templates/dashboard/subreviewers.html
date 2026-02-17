@@ -43,7 +43,7 @@
     <!-- Success/Error Messages -->
     {% if message %}
         {% if message_type == 'success' %}
-            <div class="mb-8 bg-green-50 border-l-4 border-green-400 rounded-lg p-6">
+            <div id="messageContainer" class="mb-8 bg-green-50 border-l-4 border-green-400 rounded-lg p-6">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <i class="fas fa-check-circle text-green-400 text-xl"></i>
@@ -54,7 +54,7 @@
                 </div>
             </div>
         {% else %}
-            <div class="mb-8 bg-red-50 border-l-4 border-red-400 rounded-lg p-6">
+            <div id="messageContainer" class="mb-8 bg-red-50 border-l-4 border-red-400 rounded-lg p-6">
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <i class="fas fa-exclamation-circle text-red-400 text-xl"></i>
@@ -609,6 +609,14 @@ if (subreviewerEmail) {
             subreviewerEmail.classList.add('border-gray-300');
         }
     });
+        }
+    });
+}
+
+// Auto-scroll to message container if it exists
+const messageContainer = document.getElementById('messageContainer');
+if (messageContainer) {
+    messageContainer.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 </script>
 {% endblock %} 

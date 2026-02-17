@@ -136,7 +136,7 @@ class Paper(models.Model):
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='papers')
     conference = models.ForeignKey(Conference, on_delete=models.CASCADE, related_name='papers')
     submitted_at = models.DateTimeField(auto_now_add=True)
-    paper_id = models.CharField(max_length=20, unique=True, blank=True, null=True, help_text="Unique Paper ID for search/reference")
+    paper_id = models.CharField(max_length=20, blank=True, null=True, help_text="Unique Paper ID for search/reference")
     track = models.ForeignKey(Track, on_delete=models.SET_NULL, null=True, blank=True, related_name='papers')
     
     STATUS_CHOICES = [
@@ -160,6 +160,10 @@ class Paper(models.Model):
             models.UniqueConstraint(
                 fields=['title', 'author', 'conference'],
                 name='unique_paper_per_author_conference'
+            ),
+            models.UniqueConstraint(
+                fields=['conference', 'paper_id'],
+                name='unique_paper_id_per_conference'
             )
         ]
         indexes = [
@@ -178,14 +182,23 @@ class Paper(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.paper_id:
-            acronym = (self.conference.acronym or 'CONF').upper()
-            year = self.conference.start_date.year if self.conference.start_date else 0
-            yy = str(year)[-2:] if year else 'XX'
-            serial = Paper.objects.filter(
-                conference=self.conference,
-                submitted_at__year=year
-            ).count() + 1
-            self.paper_id = f"{acronym}{yy}{serial:02d}"
+            # Use a sequential integer ID starting from 1 for each conference
+            last_paper = Paper.objects.filter(conference=self.conference).exclude(paper_id__isnull=True).order_by('-id').first()
+            if last_paper and last_paper.paper_id and last_paper.paper_id.isdigit():
+                try:
+                    next_id = int(last_paper.paper_id) + 1
+                except ValueError:
+                    next_id = 1
+            else:
+                 # Fallback if no valid last paper or first paper
+                 count = Paper.objects.filter(conference=self.conference).count()
+                 next_id = count + 1
+            
+            # Ensure uniqueness by checking if ID exists (in case of deletions or parallel creates)
+            while Paper.objects.filter(conference=self.conference, paper_id=str(next_id)).exists():
+                next_id += 1
+                
+            self.paper_id = str(next_id)
         super().save(*args, **kwargs)
 
 class Review(models.Model):
