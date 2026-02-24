@@ -131,97 +131,163 @@
             </a>
         </div>
 
-        <!-- Search and Filter Controls -->
-        <section class="bg-white rounded-lg shadow p-6 mb-8">
-            <form method="get" class="flex flex-wrap gap-4 items-end">
-                <div class="flex-1 min-w-64">
-                    <label for="search" class="block text-sm font-medium text-gray-700 mb-2">Search Papers</label>
-                    <input type="text" 
-                           name="search" 
-                           id="search"
-                           value="{{ search_query }}" 
-                           placeholder="Search by author name, paper title, or paper ID..." 
-                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                </div>
-                
-                <div class="min-w-48">
-                    <label for="status" class="block text-sm font-medium text-gray-700 mb-2">Filter by Status</label>
-                    <select name="status" id="status" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
-                        <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Status</option>
-                        <option value="submitted" {% if status_filter == 'submitted' %}selected{% endif %}>Submitted</option>
-                        <option value="under_review" {% if status_filter == 'under_review' %}selected{% endif %}>Under Review</option>
-                        <option value="accepted" {% if status_filter == 'accepted' %}selected{% endif %}>Accepted</option>
-                        <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
-                    </select>
-                </div>
-                
-                <div class="flex gap-2">
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <i class="fas fa-search mr-2"></i>Search
-                    </button>
-                    {% if search_query or status_filter != 'all' %}
-                        <a href="{% url 'dashboard:conference_submissions' conference.id %}" class="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500">
-                            <i class="fas fa-times mr-2"></i>Clear
+        <!-- Filters Panel -->
+        <section class="bg-white rounded-lg shadow p-6 mb-6">
+            <form method="get" id="filterForm" class="space-y-4">
+                <!-- Row 1: Search + buttons -->
+                <div class="flex flex-wrap gap-3 items-end">
+                    <div class="flex-1 min-w-56">
+                        <label for="search" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                            <i class="fas fa-search mr-1"></i> Search
+                        </label>
+                        <input type="text"
+                               name="search"
+                               id="search"
+                               value="{{ search_query }}"
+                               placeholder="Title, author, paper ID…"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+
+                    <div class="min-w-36">
+                        <label for="status" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                            <i class="fas fa-circle-half-stroke mr-1"></i> Status
+                        </label>
+                        <select name="status" id="status" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Statuses</option>
+                            <option value="submitted"    {% if status_filter == 'submitted' %}selected{% endif %}>Submitted</option>
+                            <option value="under_review" {% if status_filter == 'under_review' %}selected{% endif %}>Under Review</option>
+                            <option value="accepted"     {% if status_filter == 'accepted' %}selected{% endif %}>Accepted</option>
+                            <option value="rejected"     {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+                        </select>
+                    </div>
+
+                    <div class="min-w-36">
+                        <label for="track" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                            <i class="fas fa-tag mr-1"></i> Track
+                        </label>
+                        {% if user_track %}
+                            <select name="track" id="track" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-gray-100 cursor-not-allowed" disabled>
+                                <option value="{{ user_track.id }}" selected>{{ user_track.name }} ({{ user_track.track_id }})</option>
+                            </select>
+                        {% else %}
+                            <select name="track" id="track" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="all" {% if track_filter == 'all' %}selected{% endif %}>All Tracks</option>
+                                {% for track in tracks %}
+                                    <option value="{{ track.id }}" {% if track_filter == track.id|stringformat:'s' %}selected{% endif %}>{{ track.name }} ({{ track.track_id }})</option>
+                                {% endfor %}
+                            </select>
+                        {% endif %}
+                    </div>
+
+                    <div class="min-w-36">
+                        <label for="reviews" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                            <i class="fas fa-star-half-alt mr-1"></i> Reviews
+                        </label>
+                        <select name="reviews" id="reviews" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="all"         {% if reviews_filter == 'all' %}selected{% endif %}>All Papers</option>
+                            <option value="none"        {% if reviews_filter == 'none' %}selected{% endif %}>No Reviewers Assigned</option>
+                            <option value="has_reviews" {% if reviews_filter == 'has_reviews' %}selected{% endif %}>Has Reviewers</option>
+                        </select>
+                    </div>
+
+                    <div class="min-w-36">
+                        <label for="sort" class="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">
+                            <i class="fas fa-sort mr-1"></i> Sort By
+                        </label>
+                        <select name="sort" id="sort" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="newest"   {% if sort_by == 'newest' %}selected{% endif %}>Newest First</option>
+                            <option value="oldest"   {% if sort_by == 'oldest' %}selected{% endif %}>Oldest First</option>
+                            <option value="title"    {% if sort_by == 'title' %}selected{% endif %}>Title A–Z</option>
+                            <option value="status"   {% if sort_by == 'status' %}selected{% endif %}>Status</option>
+                            <option value="paper_id" {% if sort_by == 'paper_id' %}selected{% endif %}>Paper ID</option>
+                        </select>
+                    </div>
+
+                    <div class="flex gap-2 items-center mt-4">
+                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 flex items-center gap-2">
+                            <i class="fas fa-filter"></i> Apply
+                        </button>
+                        {% if has_filters %}
+                        <a href="{% url 'dashboard:conference_submissions' conference.id %}"
+                           class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 focus:outline-none flex items-center gap-2">
+                            <i class="fas fa-times"></i> Clear
                         </a>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Active filter badges -->
+                {% if has_filters %}
+                <div class="flex flex-wrap gap-2 pt-1">
+                    {% if search_query %}
+                        <span class="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs font-medium px-2.5 py-1 rounded-full">
+                            <i class="fas fa-search text-xs"></i> "{{ search_query }}"
+                        </span>
+                    {% endif %}
+                    {% if status_filter != 'all' %}
+                        <span class="inline-flex items-center gap-1 bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-1 rounded-full">
+                            <i class="fas fa-circle-half-stroke text-xs"></i>
+                            {% if status_filter == 'under_review' %}Under Review{% else %}{{ status_filter|title }}{% endif %}
+                        </span>
+                    {% endif %}
+                    {% if track_filter != 'all' %}
+                        {% for track in tracks %}{% if track.id|stringformat:'s' == track_filter %}
+                        <span class="inline-flex items-center gap-1 bg-green-100 text-green-800 text-xs font-medium px-2.5 py-1 rounded-full">
+                            <i class="fas fa-tag text-xs"></i> {{ track.name }}
+                        </span>
+                        {% endif %}{% endfor %}
+                    {% endif %}
+                    {% if reviews_filter != 'all' %}
+                        <span class="inline-flex items-center gap-1 bg-yellow-100 text-yellow-800 text-xs font-medium px-2.5 py-1 rounded-full">
+                            <i class="fas fa-star-half-alt text-xs"></i>
+                            {% if reviews_filter == 'none' %}No Reviewers{% else %}Has Reviewers{% endif %}
+                        </span>
+                    {% endif %}
+                    {% if sort_by != 'newest' %}
+                        <span class="inline-flex items-center gap-1 bg-gray-200 text-gray-700 text-xs font-medium px-2.5 py-1 rounded-full">
+                            <i class="fas fa-sort text-xs"></i>
+                            {% if sort_by == 'oldest' %}Oldest First
+                            {% elif sort_by == 'title' %}Title A–Z
+                            {% elif sort_by == 'status' %}By Status
+                            {% elif sort_by == 'paper_id' %}By Paper ID
+                            {% endif %}
+                        </span>
                     {% endif %}
                 </div>
+                {% endif %}
             </form>
         </section>
 
         <!-- Papers List -->
         <section class="bg-white rounded-lg shadow">
-            <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-                <div>
-                    <h2 class="text-xl font-semibold text-gray-900">
+            <!-- Table header bar -->
+            <div class="px-6 py-4 border-b border-gray-200 flex flex-wrap justify-between items-center gap-3">
+                <div class="flex items-center gap-3">
+                    <h2 class="text-lg font-semibold text-gray-900">
                         Paper Submissions
-                        {% if search_query %}
-                            <span class="text-sm text-gray-500">- Results for "{{ search_query }}"</span>
-                        {% endif %}
-                        {% if user_track %}
-                            <span class="text-sm text-blue-600">- Filtered by your track: {{ user_track.name }} ({{ user_track.track_id }})</span>
-                        {% elif is_pc_member %}
-                            <span class="text-sm text-green-600">- You can view all papers (no track assigned)</span>
-                        {% endif %}
                     </h2>
+                    <span class="text-xs font-semibold bg-blue-100 text-blue-800 px-2.5 py-1 rounded-full">
+                        {{ papers_count }} result{{ papers_count|pluralize }}
+                    </span>
+                    {% if has_filters %}
+                    <span class="text-xs text-gray-500">of {{ total_submissions }} total</span>
+                    {% endif %}
+                    {% if user_track %}
+                        <span class="text-xs text-blue-600 font-medium">
+                            <i class="fas fa-tag mr-1"></i>{{ user_track.name }} ({{ user_track.track_id }})
+                        </span>
+                    {% endif %}
                 </div>
                 {% if is_chair %}
-                <div class="flex items-center gap-3">
-                    <button id="bulkEmailBtn" 
-                            onclick="openBulkEmailModal()" 
-                            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled>
-                        <i class="fas fa-envelope mr-2"></i>Send Status Email (<span id="selectedCount">0</span> selected)
-                    </button>
-                </div>
+                <button id="bulkEmailBtn"
+                        onclick="openBulkEmailModal()"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 transition duration-150 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                        disabled>
+                    <i class="fas fa-envelope"></i> Send Status Email (<span id="selectedCount">0</span> selected)
+                </button>
                 {% endif %}
             </div>
-            
-            <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-gray-50">
-                <form method="get" class="flex items-center gap-4">
-                    <label for="track" class="font-semibold text-gray-700">Filter by Track:</label>
-                    {% if user_track %}
-                        <select name="track" id="track" class="border rounded px-3 py-1 bg-gray-100" disabled>
-                            <option value="{{ user_track.id }}" selected>{{ user_track.name }} ({{ user_track.track_id }})</option>
-                        </select>
-                        <span class="text-sm text-gray-600">(You can only view papers from your assigned track)</span>
-                    {% elif is_pc_member %}
-                        <select name="track" id="track" class="border rounded px-3 py-1" onchange="this.form.submit()">
-                            <option value="all" {% if track_filter == 'all' %}selected{% endif %}>All Tracks</option>
-                            {% for track in tracks %}
-                                <option value="{{ track.id }}" {% if track_filter == track.id|stringformat:'s' %}selected{% endif %}>{{ track.name }} ({{ track.track_id }})</option>
-                            {% endfor %}
-                        </select>
-                        <span class="text-sm text-green-600">(You can view and filter all papers)</span>
-                    {% else %}
-                        <select name="track" id="track" class="border rounded px-3 py-1" onchange="this.form.submit()">
-                            <option value="all" {% if track_filter == 'all' %}selected{% endif %}>All Tracks</option>
-                            {% for track in tracks %}
-                                <option value="{{ track.id }}" {% if track_filter == track.id|stringformat:'s' %}selected{% endif %}>{{ track.name }} ({{ track.track_id }})</option>
-                            {% endfor %}
-                        </select>
-                    {% endif %}
-                </form>
-            </div>
+
             <div class="overflow-x-auto">
                 <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-gray-50">
@@ -360,13 +426,13 @@
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="11" class="px-6 py-8 text-center text-gray-500">
+                            <td colspan="12" class="px-6 py-12 text-center text-gray-500">
                                 <div class="flex flex-col items-center">
                                     <i class="fas fa-file-alt text-gray-300 text-4xl mb-4"></i>
                                     <p class="text-lg font-medium">No papers found</p>
-                                    <p class="text-sm">
-                                        {% if search_query %}
-                                            Try adjusting your search criteria.
+                                    <p class="text-sm mt-1">
+                                        {% if has_filters %}
+                                            No papers match the current filters. <a href="{% url 'dashboard:conference_submissions' conference.id %}" class="text-blue-600 hover:underline">Clear all filters</a>
                                         {% else %}
                                             No papers have been submitted to this conference yet.
                                         {% endif %}
@@ -379,6 +445,7 @@
                 </table>
             </div>
         </section>
+
     </main>
 
     <!-- Bulk Email Modal -->

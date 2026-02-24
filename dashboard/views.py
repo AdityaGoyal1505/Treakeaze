@@ -846,23 +846,29 @@ def conference_submissions(request, conf_id):
         })
     
     # Get all papers submitted to this conference
-    papers = Paper.objects.filter(conference=conference).select_related('author', 'track').order_by('-submitted_at')
+    papers = Paper.objects.filter(conference=conference).select_related('author', 'track')
     
     # If PC member has a track assigned, filter papers by their track
-    # If PC member has no track assigned, they can see all papers
     if is_pc_member and user_role.track:
         papers = papers.filter(track=user_role.track)
     
-    # Filter by status if requested
+    # Filter by status
     status_filter = request.GET.get('status', 'all')
     if status_filter != 'all':
         papers = papers.filter(status=status_filter)
     
-    # Filter by track if requested
+    # Filter by track
     tracks = conference.tracks.all()
     track_filter = request.GET.get('track', 'all')
     if track_filter != 'all':
         papers = papers.filter(track_id=track_filter)
+    
+    # Filter by review assignment
+    reviews_filter = request.GET.get('reviews', 'all')
+    if reviews_filter == 'none':
+        papers = papers.filter(reviews__isnull=True)
+    elif reviews_filter == 'has_reviews':
+        papers = papers.filter(reviews__isnull=False).distinct()
     
     # Search functionality
     search_query = request.GET.get('search', '')
@@ -876,6 +882,17 @@ def conference_submissions(request, conf_id):
             Q(paper_id__icontains=search_query)
         )
     
+    # Sort
+    sort_by = request.GET.get('sort', 'newest')
+    sort_map = {
+        'newest': '-submitted_at',
+        'oldest': 'submitted_at',
+        'title': 'title',
+        'status': 'status',
+        'paper_id': 'paper_id',
+    }
+    papers = papers.order_by(sort_map.get(sort_by, '-submitted_at'))
+
     # Re-calculate review statistics for filtered papers (after all filters are applied)
     for paper in papers:
         reviews = paper.reviews.all()
@@ -909,15 +926,21 @@ def conference_submissions(request, conf_id):
         "Email", "Administration", "Conference", "News", "papersetu", "Tracks"
     ]
     
-    # Statistics
-    total_submissions = Paper.objects.filter(conference=conference).count()
-    accepted_papers = Paper.objects.filter(conference=conference, status='accepted').count()
-    rejected_papers = Paper.objects.filter(conference=conference, status='rejected').count()
-    pending_papers = Paper.objects.filter(conference=conference, status='submitted').count()
+    # Statistics (always based on all papers for this conference, not filtered)
+    all_papers = Paper.objects.filter(conference=conference)
+    total_submissions = all_papers.count()
+    accepted_papers = all_papers.filter(status='accepted').count()
+    rejected_papers = all_papers.filter(status='rejected').count()
+    pending_papers = all_papers.filter(status='submitted').count()
+
+    # Check if any active filter is applied
+    has_filters = (search_query or status_filter != 'all' or track_filter != 'all'
+                   or reviews_filter != 'all' or sort_by != 'newest')
     
     context = {
         'conference': conference,
         'papers': papers,
+        'papers_count': papers.count() if hasattr(papers, 'count') else len(papers),
         'is_chair': is_chair,
         'is_pc_member': is_pc_member,
         'user_track': user_role.track if user_role else None,
@@ -931,9 +954,13 @@ def conference_submissions(request, conf_id):
         'pending_papers': pending_papers,
         'tracks': tracks,
         'track_filter': track_filter,
+        'reviews_filter': reviews_filter,
+        'sort_by': sort_by,
+        'has_filters': has_filters,
     }
     
     return render(request, 'dashboard/conference_submissions.html', context)
+
 
 @login_required
 def conference_details(request, conf_id):
@@ -2120,6 +2147,7 @@ def subreviewers(request, conf_id):
             
             track_id = request.POST.get('track')
             bulk_list = request.POST.get('bulk_invitation_list', '').strip().split('\n')
+            bulk_template_body = request.POST.get('bulk_template_body', '').strip()
             
             if not paper_ids:
                 message = "Please select at least one paper."
@@ -2191,9 +2219,25 @@ def subreviewers(request, conf_id):
                             # Send email
                             recipient_name = name if name else (existing_user.get_full_name() if existing_user else 'Reviewer')
                             track_info = f"\nTrack: {paper_track.name} ({paper_track.track_id})" if paper_track else ""
+                            invite_url_str = request.build_absolute_uri('/conference/subreviewer/respond/' + token + '/')
                             subject = f"Paper Review Invitation: '{paper.title}'"
-                            message_body = f"Dear {recipient_name},\n\nYou have been invited to review the paper \"{paper.title}\" for the conference '{conference.name}'.{track_info}\n\nPlease click the following link to accept or decline this invitation:\n{request.build_absolute_uri('/conference/subreviewer/respond/' + token + '/')}\n\nBest regards,\n{request.user.get_full_name() or request.user.username}\nConference Chair/PC Member"
+                            # Use custom template body if provided, otherwise use default
+                            if bulk_template_body:
+                                message_body = bulk_template_body
+                                message_body = message_body.replace('{{ subreviewer_name }}', recipient_name)
+                                message_body = message_body.replace('{{ paper_title }}', paper.title)
+                                message_body = message_body.replace('{{ invite_url }}', invite_url_str)
+                                message_body = message_body.replace('{{ conference_name }}', conference.name)
+                                message_body = message_body.replace('{{ track_info }}', track_info)
+                                message_body = message_body.replace('{{subreviewer_name}}', recipient_name)
+                                message_body = message_body.replace('{{paper_title}}', paper.title)
+                                message_body = message_body.replace('{{invite_url}}', invite_url_str)
+                                message_body = message_body.replace('{{conference_name}}', conference.name)
+                                message_body = message_body.replace('{{track_info}}', track_info)
+                            else:
+                                message_body = f"Dear {recipient_name},\n\nYou have been invited to review the paper \"{paper.title}\" for the conference '{conference.name}'.{track_info}\n\nPlease click the following link to accept or decline this invitation:\n{invite_url_str}\n\nBest regards,\n{request.user.get_full_name() or request.user.username}\nConference Chair/PC Member"
                             send_mail(subject, message_body, None, [email])
+
                             success_count += 1
                         except Exception as e:
                             error_messages.append(f'Error for {email}: {str(e)}')
