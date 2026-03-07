@@ -57,7 +57,7 @@
                     {{ paper_form.track.errors }}
                 </div>
                 {% endif %}
-                <label for="file" class="block text-gray-700 font-semibold mb-2">Upload File (PDF only) <span class="text-red-500">*</span> <span class="text-sm text-gray-500 font-normal ml-1">(Kindly ensure that the name of the uploaded PDF file is kept as short as possible.)</span></label>
+                <label for="file" class="block text-gray-700 font-semibold mb-2">Upload File (PDF only) <span class="text-red-500">*</span> <span class="text-sm text-gray-500 font-normal ml-1">(Kindly ensure name of PDF file being uploaded is not more than 3 words/20 characters.)</span></label>
                 <input type="file" name="file" id="file" accept="application/pdf" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" {% if not paper_form.file.value %}required{% endif %}>
                 {% if paper_form.file.value %}
                 <p class="text-sm text-gray-600 mb-2">Previously uploaded: {{ paper_form.file.value }}</p>
