@@ -5010,9 +5010,11 @@ def export_submissions_excel(request, conf_id):
         'decision': lambda paper: getattr(paper, 'status', ''),
         'keywords': lambda paper: getattr(paper, 'keywords', ''),
         'abstract': lambda paper: getattr(paper, 'abstract', ''),
+        'country': lambda paper: paper.authors.filter(is_corresponding=True).first().country_region if paper.authors.filter(is_corresponding=True).exists() else (paper.authors.first().country_region if paper.authors.exists() else 'N/A'),
+        'affiliation': lambda paper: paper.authors.filter(is_corresponding=True).first().affiliation if paper.authors.filter(is_corresponding=True).exists() else (paper.authors.first().affiliation if paper.authors.exists() else 'N/A'),
     }
     # Prepare workbook
-    papers = Paper.objects.filter(conference=conference).select_related('author').order_by('id')
+    papers = Paper.objects.filter(conference=conference).select_related('author').prefetch_related('authors').order_by('id')
     wb = Workbook()
     ws = wb.active
     ws.title = 'Submissions'
@@ -5047,6 +5049,8 @@ def export_submissions_excel_options(request, conf_id):
         {'key': 'decision', 'label': 'Decision', 'default': False},
         {'key': 'keywords', 'label': 'Keywords', 'default': False},
         {'key': 'abstract', 'label': 'Abstract', 'default': False},
+        {'key': 'country', 'label': 'Country/Region', 'default': True},
+        {'key': 'affiliation', 'label': 'Affiliation', 'default': True},
     ]
     return render(request, 'dashboard/export_submissions_excel_options.html', {
         'conference': conference,

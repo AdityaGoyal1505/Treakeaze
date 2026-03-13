@@ -133,7 +133,7 @@ class AuthorForm(forms.ModelForm):
 
 class PaperSubmissionForm(forms.ModelForm):
     keywords = forms.CharField(required=True, help_text='Comma-separated keywords')
-    track = forms.ModelChoiceField(queryset=None, required=False, help_text='Select a track (if applicable)')
+    track = forms.ModelChoiceField(queryset=None, required=True, help_text='Select a track')
 
     class Meta:
         model = Paper
@@ -149,8 +149,10 @@ class PaperSubmissionForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if conference:
             self.fields['track'].queryset = conference.tracks.all()
-            if not conference.tracks.exists():
-                self.fields['track'].widget = forms.HiddenInput()
+            # Set default track to the one matching conference name
+            default_track = conference.tracks.filter(name__iexact=conference.name).first()
+            if default_track:
+                self.fields['track'].initial = default_track
         else:
             self.fields['track'].queryset = Track.objects.none()
     

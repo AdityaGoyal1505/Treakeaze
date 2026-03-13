@@ -50,13 +50,11 @@
                 <textarea name="abstract" id="abstract" rows="3" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" required>{{ paper_form.abstract.value|default:'' }}</textarea>
                 <label for="keywords" class="block text-gray-700 font-semibold mb-2">Keywords <span class="text-red-500">*</span></label>
                 <input type="text" name="keywords" id="keywords" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" placeholder="Comma-separated keywords" value="{{ paper_form.keywords.value|default:'' }}" required>
-                {% if not paper_form.track.is_hidden %}
                 <div class="mb-4">
-                    <label class="block mb-1">Track (optional)</label>
+                    <label class="block mb-1">Track</label>
                     {{ paper_form.track }}
                     {{ paper_form.track.errors }}
                 </div>
-                {% endif %}
                 <label for="file" class="block text-gray-700 font-semibold mb-2">Upload File (PDF only) <span class="text-red-500">*</span> <span class="text-sm text-gray-500 font-normal ml-1">(Kindly ensure name of PDF file being uploaded is not more than 3 words/20 characters.)</span></label>
                 <input type="file" name="file" id="file" accept="application/pdf" class="w-full px-4 py-2 border border-gray-300 rounded-lg mb-4" {% if not paper_form.file.value %}required{% endif %}>
                 {% if paper_form.file.value %}

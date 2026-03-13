@@ -248,6 +248,29 @@ def reviewer_volunteer(request):
 @login_required
 def submit_paper(request, conference_id):
     conference = get_object_or_404(Conference, id=conference_id)
+    
+    # Ensure a default track exists if no tracks are defined
+    from .models import Track
+    if not conference.tracks.exists():
+        from django.utils.text import slugify
+        import random
+        import string
+        
+        # Use a reasonably unique track_id based on conference acronym
+        base_id = (conference.acronym or 'CONF').upper()[:10]
+        track_id = f"{base_id}_DEFAULT"
+        
+        # In case of global uniqueness collision, append random chars
+        while Track.objects.filter(track_id=track_id).exists():
+            random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+            track_id = f"{base_id}_{random_str}"
+            
+        Track.objects.create(
+            track_id=track_id,
+            name=conference.name,
+            conference=conference
+        )
+
     if request.method == 'POST':
         form = PaperSubmissionForm(request.POST, request.FILES, conference=conference, user=request.user)
         if form.is_valid():
@@ -443,8 +466,30 @@ def choose_conference_role(request, conference_id):
 @login_required
 def author_dashboard(request, conference_id):
     from .forms import AuthorForm, PaperSubmissionForm
-    from .models import Author
+    from .models import Author, Track
     conference = get_object_or_404(Conference, id=conference_id)
+    
+    # Ensure a default track exists if no tracks are defined
+    if not conference.tracks.exists():
+        from django.utils.text import slugify
+        import random
+        import string
+        
+        # Use a reasonably unique track_id based on conference acronym
+        base_id = (conference.acronym or 'CONF').upper()[:10]
+        track_id = f"{base_id}_DEFAULT"
+        
+        # In case of global uniqueness collision, append random chars
+        while Track.objects.filter(track_id=track_id).exists():
+            random_str = ''.join(random.choices(string.ascii_uppercase + string.digits, k=4))
+            track_id = f"{base_id}_{random_str}"
+            
+        Track.objects.create(
+            track_id=track_id,
+            name=conference.name,
+            conference=conference
+        )
+
     user = request.user
     # Always fetch the latest status for each paper after any POST
     papers = Paper.objects.filter(conference=conference, author=user).order_by(
