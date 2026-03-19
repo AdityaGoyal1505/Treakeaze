@@ -144,6 +144,7 @@ class Paper(models.Model):
         ('under_review', 'Under Review'),
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
+        ('desk_reject', 'Desk Reject'),
         ('rejected', 'Rejected'),
     ]
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')

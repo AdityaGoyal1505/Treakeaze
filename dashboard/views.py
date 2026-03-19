@@ -14,6 +14,7 @@ from datetime import date
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils.crypto import get_random_string
+from django.core.paginator import Paginator
 from conference.forms import (
     ConferenceInfoForm, SubmissionSettingsForm, ReviewingSettingsForm,
     RebuttalSettingsForm, DecisionSettingsForm, EmailTemplateForm,
@@ -893,7 +894,15 @@ def conference_submissions(request, conf_id):
     }
     papers = papers.order_by(sort_map.get(sort_by, '-submitted_at'))
 
-    # Re-calculate review statistics for filtered papers (after all filters are applied)
+    # Keep filtered count before pagination for header and filter context.
+    papers_count = papers.count()
+
+    # Pagination
+    paginator = Paginator(papers, 10)
+    page_number = request.GET.get('page')
+    papers = paginator.get_page(page_number)
+
+    # Re-calculate review statistics for papers on the current page.
     for paper in papers:
         reviews = paper.reviews.all()
         paper.total_reviews = reviews.count()
@@ -936,11 +945,16 @@ def conference_submissions(request, conf_id):
     # Check if any active filter is applied
     has_filters = (search_query or status_filter != 'all' or track_filter != 'all'
                    or reviews_filter != 'all' or sort_by != 'newest')
+
+    # Preserve all active query params in pagination links, except page.
+    pagination_params = request.GET.copy()
+    pagination_params.pop('page', None)
+    pagination_query = pagination_params.urlencode()
     
     context = {
         'conference': conference,
         'papers': papers,
-        'papers_count': papers.count() if hasattr(papers, 'count') else len(papers),
+        'papers_count': papers_count,
         'is_chair': is_chair,
         'is_pc_member': is_pc_member,
         'user_track': user_role.track if user_role else None,
@@ -957,6 +971,7 @@ def conference_submissions(request, conf_id):
         'reviews_filter': reviews_filter,
         'sort_by': sort_by,
         'has_filters': has_filters,
+        'pagination_query': pagination_query,
     }
     
     return render(request, 'dashboard/conference_submissions.html', context)
@@ -3858,13 +3873,15 @@ def manage_submission(request, conf_id, submission_id):
         decision = request.POST.get('decision')
         send_email = request.POST.get('send_email') == '1'  # Check if email checkbox is checked
         
-        if decision in ['accept', 'reject', 'under_review'] and is_chair:  # Only chair can make final decisions
+        if decision in ['accept', 'reject', 'desk_reject', 'under_review'] and is_chair:  # Only chair can make final decisions
             old_status = paper.status
             # Map to model status values
             if decision == 'accept':
                 paper.status = 'accepted'
             elif decision == 'reject':
                 paper.status = 'rejected'
+            elif decision == 'desk_reject':
+                paper.status = 'desk_reject'
             elif decision == 'under_review':
                 paper.status = 'under_review'
             paper.save()
@@ -3897,6 +3914,7 @@ def manage_submission(request, conf_id, submission_id):
                 decision_text = {
                     'accept': 'Accepted',
                     'reject': 'Rejected',
+                    'desk_reject': 'Desk Reject',
                     'under_review': 'Under Review'
                 }.get(decision, decision.title().replace('_', ' '))
                 
@@ -3915,6 +3933,8 @@ def manage_submission(request, conf_id, submission_id):
                         subject = f"Congratulations! Your Paper Has Been Accepted - {conference.name}"
                     elif decision == 'reject':
                         subject = f"Paper Decision Notification - {conference.name}"
+                    elif decision == 'desk_reject':
+                        subject = f"Paper Desk Rejection Notification - {conference.name}"
                     else:
                         subject = f"Paper Status Update - {decision_text} - {conference.name}"
                 else:
@@ -3966,6 +3986,26 @@ Paper Details:
 We received a large number of high-quality submissions this year, making the selection process extremely competitive. While your paper was not selected for this conference, we encourage you to consider the feedback from the reviewers and continue your valuable research.
 
 We appreciate your interest in {conference.name} and hope you will consider submitting your future work to our conference.
+
+Best regards,
+{conference.name} Program Committee
+Conference Chair: {chair_name}"""
+
+                    elif decision == 'desk_reject':
+                        subject = f"Paper Desk Rejection Notification - {conference.name}"
+                        body = f"""Dear {author_name},
+
+Thank you for submitting your paper to {conference.name}. After an initial editorial screening, we regret to inform you that your paper has been desk rejected and will not proceed to peer review.
+
+Paper Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Paper ID: {paper.paper_id}
+• Title: {paper.title}
+• Conference: {conference.name}
+• Decision: DESK REJECTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+We appreciate your interest in {conference.name} and encourage you to consider submitting future work.
 
 Best regards,
 {conference.name} Program Committee
@@ -4119,6 +4159,26 @@ Paper Details:
 We received a large number of high-quality submissions this year, making the selection process extremely competitive. While your paper was not selected for this conference, we encourage you to consider the feedback from the reviewers and continue your valuable research.
 
 We appreciate your interest in {conference.name} and hope you will consider submitting your future work to our conference.
+
+Best regards,
+{conference.name} Program Committee
+Conference Chair: {conference.chair.get_full_name() if conference.chair else 'Conference Team'}"""
+
+            elif status == 'desk_reject':
+                subject = f"Paper Desk Rejection Notification - {conference.name}"
+                body = f"""Dear {author_name},
+
+Thank you for submitting your paper to {conference.name}. After an initial editorial screening, we regret to inform you that your paper has been desk rejected and will not proceed to peer review.
+
+Paper Details:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Paper ID: {paper.paper_id}
+• Title: {paper.title}
+• Conference: {conference.name}
+• Decision: DESK REJECTED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+We appreciate your interest in {conference.name} and encourage you to consider submitting future work.
 
 Best regards,
 {conference.name} Program Committee

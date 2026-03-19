@@ -157,6 +157,7 @@
                             <option value="submitted"    {% if status_filter == 'submitted' %}selected{% endif %}>Submitted</option>
                             <option value="under_review" {% if status_filter == 'under_review' %}selected{% endif %}>Under Review</option>
                             <option value="accepted"     {% if status_filter == 'accepted' %}selected{% endif %}>Accepted</option>
+                            <option value="desk_reject"  {% if status_filter == 'desk_reject' %}selected{% endif %}>Desk Reject</option>
                             <option value="rejected"     {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
                         </select>
                     </div>
@@ -227,7 +228,7 @@
                     {% if status_filter != 'all' %}
                         <span class="inline-flex items-center gap-1 bg-purple-100 text-purple-800 text-xs font-medium px-2.5 py-1 rounded-full">
                             <i class="fas fa-circle-half-stroke text-xs"></i>
-                            {% if status_filter == 'under_review' %}Under Review{% else %}{{ status_filter|title }}{% endif %}
+                            {% if status_filter == 'under_review' %}Under Review{% elif status_filter == 'desk_reject' %}Desk Reject{% else %}{{ status_filter|title }}{% endif %}
                         </span>
                     {% endif %}
                     {% if track_filter != 'all' %}
@@ -383,12 +384,13 @@
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-3 py-1 rounded-full text-xs font-semibold
                                     {% if paper.status == 'accepted' %}bg-green-100 text-green-800
+                                    {% elif paper.status == 'desk_reject' %}bg-rose-100 text-rose-800
                                     {% elif paper.status == 'rejected' %}bg-red-100 text-red-800
                                     {% elif paper.status == 'under_review' %}bg-purple-100 text-purple-800
                                     {% elif paper.status == 'submitted' %}bg-blue-100 text-blue-800
                                     {% elif paper.status == 'pending' %}bg-yellow-100 text-yellow-800
                                     {% else %}bg-gray-100 text-gray-800{% endif %}">
-                                    {% if paper.status == 'under_review' %}Under Review{% else %}{{ paper.status|title }}{% endif %}
+                                    {% if paper.status == 'under_review' %}Under Review{% elif paper.status == 'desk_reject' %}Desk Reject{% else %}{{ paper.status|title }}{% endif %}
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -444,6 +446,29 @@
                     </tbody>
                 </table>
             </div>
+
+            {% if papers.paginator.num_pages > 1 %}
+            <div class="px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <p class="text-sm text-gray-600">
+                    Showing {{ papers.start_index }}-{{ papers.end_index }} of {{ papers.paginator.count }} submissions
+                </p>
+                <div class="flex items-center gap-2 text-sm">
+                    {% if papers.has_previous %}
+                        <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page=1" class="px-3 py-1.5 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">First</a>
+                        <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ papers.previous_page_number }}" class="px-3 py-1.5 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Previous</a>
+                    {% endif %}
+
+                    <span class="px-3 py-1.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-semibold">
+                        Page {{ papers.number }} of {{ papers.paginator.num_pages }}
+                    </span>
+
+                    {% if papers.has_next %}
+                        <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ papers.next_page_number }}" class="px-3 py-1.5 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Next</a>
+                        <a href="?{% if pagination_query %}{{ pagination_query }}&{% endif %}page={{ papers.paginator.num_pages }}" class="px-3 py-1.5 rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50">Last</a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
         </section>
 
     </main>

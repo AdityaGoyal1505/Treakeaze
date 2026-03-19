@@ -28,6 +28,25 @@ from django.db import models
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
+
+def get_submission_closed_reason(conference):
+    """Return a human-readable reason if submission is closed, else None."""
+    now = timezone.now()
+    today = now.date()
+
+    # Hard stop after conference end date.
+    if conference.end_date and today > conference.end_date:
+        return f"Paper submissions are closed because the conference end date ({conference.end_date}) has passed."
+
+    # Optional explicit submission deadlines.
+    if conference.submission_deadline and now > conference.submission_deadline:
+        return "Paper submissions are closed because the submission deadline has passed."
+
+    if conference.paper_submission_deadline and today > conference.paper_submission_deadline:
+        return "Paper submissions are closed because the paper submission deadline has passed."
+
+    return None
+
 @csrf_exempt
 def create_checkout_session(request, paper_id):
     paper = get_object_or_404(Paper, id=paper_id)
@@ -248,6 +267,8 @@ def reviewer_volunteer(request):
 @login_required
 def submit_paper(request, conference_id):
     conference = get_object_or_404(Conference, id=conference_id)
+
+    submission_closed_reason = get_submission_closed_reason(conference)
     
     # Ensure a default track exists if no tracks are defined
     from .models import Track
@@ -272,6 +293,10 @@ def submit_paper(request, conference_id):
         )
 
     if request.method == 'POST':
+        if submission_closed_reason:
+            messages.error(request, submission_closed_reason)
+            return redirect('conference:submit_paper', conference_id=conference_id)
+
         form = PaperSubmissionForm(request.POST, request.FILES, conference=conference, user=request.user)
         if form.is_valid():
             paper = form.save(commit=False)
@@ -305,7 +330,15 @@ def submit_paper(request, conference_id):
             return redirect('conference:submit_paper', conference_id=conference_id)
     else:
         form = PaperSubmissionForm(conference=conference, user=request.user)
-    return render(request, 'conference/submit_paper.html', {'form': form, 'conference': conference})
+    return render(
+        request,
+        'conference/submit_paper.html',
+        {
+            'form': form,
+            'conference': conference,
+            'submission_closed_reason': submission_closed_reason,
+        }
+    )
 
 @login_required
 def join_conference(request, invite_link):
@@ -468,6 +501,7 @@ def author_dashboard(request, conference_id):
     from .forms import AuthorForm, PaperSubmissionForm
     from .models import Author, Track
     conference = get_object_or_404(Conference, id=conference_id)
+    submission_closed_reason = get_submission_closed_reason(conference)
     
     # Ensure a default track exists if no tracks are defined
     if not conference.tracks.exists():
@@ -501,6 +535,10 @@ def author_dashboard(request, conference_id):
         '-submitted_at'
     )
     if request.method == 'POST':
+        if submission_closed_reason:
+            messages.error(request, submission_closed_reason)
+            return redirect('conference:author_dashboard', conference_id=conference_id)
+
         paper_form = PaperSubmissionForm(request.POST, request.FILES, conference=conference, user=user)
         authors_data = request.POST.getlist('authors_json')
         import json
@@ -591,6 +629,7 @@ def author_dashboard(request, conference_id):
         'conference': conference,
         'papers': papers,
         'paper_form': paper_form,
+        'submission_closed_reason': submission_closed_reason,
     }
     return render(request, 'conference/author_dashboard.html', context)
 

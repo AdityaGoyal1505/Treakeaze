@@ -33,6 +33,12 @@
             {% endfor %}
         </div>
         {% endif %}
+
+        {% if submission_closed_reason %}
+        <div class="mb-4 bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">
+            <i class="fas fa-lock mr-2"></i>{{ submission_closed_reason }}
+        </div>
+        {% endif %}
         
         <form method="post" enctype="multipart/form-data" id="uploadPaperForm" autocomplete="off">
             {% csrf_token %}
@@ -63,7 +69,7 @@
             </div>
             <input type="hidden" name="authors_json" id="authors_json">
             <div id="formErrors" class="text-red-600 font-semibold mb-2"></div>
-            <button type="submit" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium w-full">Upload Paper</button>
+            <button type="submit" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium w-full disabled:bg-gray-400 disabled:cursor-not-allowed" {% if submission_closed_reason %}disabled{% endif %}>Upload Paper</button>
         </form>
         <script>
         // Country/Region options (can be replaced with a full list)
@@ -180,6 +186,12 @@
         renderAuthors();
         // Form validation and submission
         document.getElementById('uploadPaperForm').onsubmit = function(e) {
+            {% if submission_closed_reason %}
+            document.getElementById('formErrors').textContent = '{{ submission_closed_reason|escapejs }}';
+            e.preventDefault();
+            return false;
+            {% endif %}
+
             // Validate authors
             let valid = true;
             let error = '';
