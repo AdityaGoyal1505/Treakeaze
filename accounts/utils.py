@@ -88,11 +88,11 @@ def send_password_reset_email(user, role_type="PC Member"):
             reset_url = f"{settings.SITE_URL}/accounts/password-reset-confirm/{uid}/{token}/"
             
             # Send email
-            subject = f'Set Your Password - PaperSetu {role_type} Invitation'
+            subject = f'Set Your Password - TrekEaze {role_type} Invitation'
             message = f'''
 Hello {user.get_full_name() or user.username},
 
-You have been invited to join PaperSetu as a {role_type}.
+You have been invited to join TrekEaze as a {role_type}.
 
 To get started, please set your password by clicking the link below:
 
@@ -103,13 +103,13 @@ This link will expire in 24 hours. If you did not expect this invitation, please
 Your username is: {user.username}
 
 Best regards,
-PaperSetu Team
+TrekEaze Team
             '''
             
             send_mail(
                 subject,
                 message,
-                'noreply@papersetu.com',
+                'trekeaze@gmail.com',
                 [user.email],
                 fail_silently=False,
             )

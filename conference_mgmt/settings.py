@@ -14,7 +14,7 @@ if allowed_hosts_env:
     ALLOWED_HOSTS = allowed_hosts_env.split(',')
 else:
     # Default hosts for development
-    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', 'papersetu2.onrender.com', '*.onrender.com', 'prakhar046.pythonanywhere.com']
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '0.0.0.0', '*.onrender.com']
 
 # Security settings for production
 if not DEBUG:
@@ -218,17 +218,17 @@ if not DEBUG:
     WHITENOISE_AUTOREFRESH = True
 
 # Admin site configuration
-ADMIN_SITE_HEADER = "PaperSetu Admin"
-ADMIN_SITE_TITLE = "PaperSetu Administration"
-ADMIN_INDEX_TITLE = "Welcome to PaperSetu Administration"
+ADMIN_SITE_HEADER = "TrekEaze Admin"
+ADMIN_SITE_TITLE = "TrekEaze Administration"
+ADMIN_INDEX_TITLE = "Welcome to TrekEaze Administration"
 
 # Admin Interface Configuration
 ADMIN_INTERFACE_CONFIG = {
-    'name': 'PaperSetu Admin',
+    'name': 'TrekEaze Admin',
     'favicon': 'https://img.icons8.com/color/48/000000/conference.png',
     'logo': 'https://img.icons8.com/color/48/000000/conference.png',
     'logo_color': '#2E86AB',
-    'title': 'PaperSetu Administration',
+    'title': 'TrekEaze Administration',
     'title_color': '#2E86AB',
     'css_header_background_color': '#2E86AB',
     'css_header_text_color': '#FFFFFF',
@@ -272,9 +272,9 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
-EMAIL_HOST_USER = 'papersetu@gmail.com'  # <-- Replace with your Gmail address
-EMAIL_HOST_PASSWORD = 'unhh ovcr cqri wxwr'  # <-- Replace with your Gmail app password
-DEFAULT_FROM_EMAIL = 'papersetu@gmail.com'
+EMAIL_HOST_USER = 'TrekEaze@gmail.com'  # <-- Replace with your Gmail address
+EMAIL_HOST_PASSWORD = 'kvzf noyd ifiy uobj'  # <-- Replace with your Gmail app password
+DEFAULT_FROM_EMAIL = 'TrekEaze@gmail.com'
 
 # SSL Certificate verification settings - disable certificate verification for development
 import ssl
@@ -306,5 +306,5 @@ STRIPE_PUBLISHABLE_KEY = os.environ.get('STRIPE_PUBLISHABLE_KEY', 'pk_test_...')
 STRIPE_PAYMENT_AMOUNT = 50000  # Amount in paise (₹500 = 50000 paise)
 STRIPE_CURRENCY = 'inr' 
 
-SITE_DOMAIN = os.environ.get('SITE_DOMAIN', 'https://papersetu2.onrender.com')
-SITE_URL = os.environ.get('SITE_URL', 'https://papersetu2.onrender.com') 
+SITE_DOMAIN = os.environ.get('SITE_DOMAIN', 'https://TrekEaze2.onrender.com')
+SITE_URL = os.environ.get('SITE_URL', 'https://TrekEaze2.onrender.com') 

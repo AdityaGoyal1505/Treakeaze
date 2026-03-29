@@ -27,8 +27,8 @@
                             <a href="{% url 'dashboard:email_placeholder' conference.id %}" class="block px-4 py-2 rounded transition-all duration-150 {% if active_tab == item %}bg-blue-600 text-white shadow{% else %}bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700{% endif %}">Email</a>
                         {% elif item == 'News' %}
                             <a href="{% url 'dashboard:news_placeholder' conference.id %}" class="block px-4 py-2 rounded transition-all duration-150 {% if active_tab == item %}bg-blue-600 text-white shadow{% else %}bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700{% endif %}">News</a>
-                        {% elif item == 'papersetu' %}
-                            <a href="{% url 'dashboard:papersetu_placeholder' conference.id %}" class="block px-4 py-2 rounded transition-all duration-150 {% if active_tab == item %}bg-blue-600 text-white shadow{% else %}bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700{% endif %}">papersetu</a>
+                        {% elif item == 'TrekEaze' %}
+                            <a href="{% url 'dashboard:TrekEaze_placeholder' conference.id %}" class="block px-4 py-2 rounded transition-all duration-150 {% if active_tab == item %}bg-blue-600 text-white shadow{% else %}bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700{% endif %}">TrekEaze</a>
                         {% elif item == 'Tracks' %}
                             <a href="{% url 'dashboard:admin_tracks' conference.id %}" class="block px-4 py-2 rounded transition-all duration-150 {% if active_tab == item %}bg-blue-600 text-white shadow{% else %}bg-gray-100 text-gray-700 hover:bg-blue-100 hover:text-blue-700{% endif %}">Tracks</a>
                         {% endif %}

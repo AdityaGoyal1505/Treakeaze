@@ -80,9 +80,9 @@ class CombinedAuthView(LoginView):
                 # Send OTP email
                 try:
                     send_mail(
-                        'Your OTP for PaperSetu Registration',
+                        'Your OTP for TrekEaze Registration',
                         f'Your OTP is: {otp}',
-                        'noreply@papersetu.com',
+                        'trekeaze@gmail.com',
                         [user.email],
                         fail_silently=False,
                     )
@@ -133,9 +133,9 @@ class CombinedAuthView(LoginView):
                             
                             try:
                                 send_mail(
-                                    'Your OTP for PaperSetu Registration',
+                                    'Your OTP for TrekEaze Registration',
                                     f'Your OTP is: {otp}',
-                                    'noreply@papersetu.com',
+                                    'trekeaze@gmail.com',
                                     [user_obj.email],
                                     fail_silently=False,
                                 )
@@ -280,9 +280,9 @@ def verify_otp(request):
             # Send new OTP email
             try:
                 send_mail(
-                    'Your OTP for PaperSetu Registration',
+                    'Your OTP for TrekEaze Registration',
                     f'Your new OTP is: {otp}',
-                    'noreply@papersetu.com',
+                    'trekeaze@gmail.com',
                     [user.email],
                     fail_silently=False,
                 )
@@ -331,13 +331,13 @@ def verify_otp(request):
             # Send welcome email only for new registrations (not for login verification)
             if not request.session.get('login_verification'):
                 try:
-                    subject = 'Welcome to PaperSetu!'
+                    subject = 'Welcome to TrekEaze!'
                     message = f'''
 Hello {user.get_full_name() or user.username},
 
-Welcome to PaperSetu! Your account has been successfully created and verified.
+Welcome to TrekEaze! Your account has been successfully created and verified.
 
-We're excited to have you join our community of researchers and academics. With PaperSetu, you can:
+We're excited to have you join our community of researchers and academics. With TrekEaze, you can:
 
 • Submit papers to conferences
 • Review submissions as a PC member
@@ -347,12 +347,12 @@ We're excited to have you join our community of researchers and academics. With 
 If you have any questions or need assistance, please don't hesitate to contact us.
 
 Best regards,
-The PaperSetu Team
+The TrekEaze Team
                     '''
                     send_mail(
                         subject,
                         message,
-                        'noreply@papersetu.com',
+                        'trekeaze@gmail.com',
                         [user.email],
                         fail_silently=False,
                     )
@@ -377,10 +377,10 @@ The PaperSetu Team
             # Check if there's a next parameter to redirect to
             next_url = request.GET.get('next')
             if next_url:
-                messages.success(request, 'Account verified successfully! Welcome to PaperSetu.')
+                messages.success(request, 'Account verified successfully! Welcome to TrekEaze.')
                 return redirect(next_url)
             else:
-                messages.success(request, 'Account verified successfully! Welcome to PaperSetu.')
+                messages.success(request, 'Account verified successfully! Welcome to TrekEaze.')
                 return redirect('homepage')
         else:
             messages.error(request, 'Invalid OTP. Please try again.')
@@ -416,25 +416,25 @@ def password_reset_request(request):
                 user.save()
                 
                 # Send email with better formatting
-                subject = 'Password Reset OTP - PaperSetu'
+                subject = 'Password Reset OTP - TrekEaze'
                 message = f'''
 Hello {user.get_full_name() or user.username},
 
-You have requested to reset your password for your PaperSetu account.
+You have requested to reset your password for your TrekEaze account.
 
 Your OTP (One-Time Password) is: {otp}
 
 This OTP is valid for 10 minutes. If you did not request this password reset, please ignore this email.
 
 Best regards,
-PaperSetu Team
+TrekEaze Team
                 '''
                 
                 try:
                     send_mail(
                         subject,
                         message,
-                        'papersetu@gmail.com',
+                        'trekeaze@gmail.com',
                         [user.email],
                         fail_silently=False,
                     )

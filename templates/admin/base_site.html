@@ -1,7 +1,7 @@
 {% extends "admin/base.html" %}
 {% load static %}
 
-{% block title %}{{ title }} | {{ site_title|default:_('PaperSetu Administration') }}{% endblock %}
+{% block title %}{{ title }} | {{ site_title|default:_('TrekEaze Administration') }}{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -371,8 +371,8 @@
 {% block branding %}
 <h1 id="site-name">
     <a href="{% url 'admin:index' %}">
-        <img src="{% static 'images/LOGO BG.png' %}" alt="PaperSetu" style="height: 30px; margin-right: 10px;">
-        {{ site_header|default:_('PaperSetu Administration') }}
+        <img src="{% static 'images/LOGO BG.png' %}" alt="TrekEaze" style="height: 30px; margin-right: 10px;">
+        {{ site_header|default:_('TrekEaze Administration') }}
     </a>
 </h1>
 {% endblock %}
