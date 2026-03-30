@@ -3719,30 +3719,53 @@ from django.utils.text import slugify
 
 @login_required
 def download_submissions(request, conf_id):
-    conference = Conference.objects.get(id=conf_id)
-    papers = Paper.objects.filter(conference=conference)
+    conference = get_object_or_404(Conference, id=conf_id)
+    # Filter for papers that have a file associated
+    papers = Paper.objects.filter(conference=conference).exclude(file='')
+
+    if not papers.exists():
+        # Handle case with no files to avoid empty download
+        return HttpResponse("No submissions with files found.", status=404)
 
     zip_buffer = BytesIO()
 
-    with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
-        for paper in papers:
-            if paper.file:
+    # We MUST close the ZipFile object before seeking to the start of the buffer
+    with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+        with requests.Session() as session:
+            for paper in papers:
                 try:
-                    # Download file from Cloudinary
-                    response = requests.get(paper.file.url)
+                    # Get the signed Cloudinary URL
+                    public_id = paper.file.name
+                    file_url, _ = cloudinary_url(
+                        public_id,
+                        resource_type="raw",
+                        sign_url=True,
+                    )
+
+                    response = session.get(file_url, timeout=15)
 
                     if response.status_code == 200:
-                        filename = f"{slugify(paper.title)}_{paper.id}{os.path.splitext(paper.file.name)[-1]}"
+                        # Create a clean filename
+                        # Use a counter or the database PK to guarantee uniqueness
+                        paper_id_safe = paper.paper_id if paper.paper_id else f"ID-{paper.pk}"
+                        clean_title = slugify(paper.title)[:50] if paper.title else "untitled"
+                        
+                        # Adding the loop index or PK at the end ensures no two files are named the same
+                        filename = f"{paper_id_safe}_{clean_title}_{paper.pk}.pdf"
+                        
                         zip_file.writestr(filename, response.content)
-
                 except Exception as e:
-                    print(f"Error downloading paper {paper.id}: {e}")
+                    print(f"Error adding paper {paper.id} to ZIP: {e}")
+                    continue
 
+    # IMPORTANT: The 'with' block above ends here, closing the ZIP.
+    # Now we move the pointer to the start so the response can read it.
     zip_buffer.seek(0)
 
-    response = HttpResponse(zip_buffer, content_type='application/zip')
-    response['Content-Disposition'] = f'attachment; filename="{slugify(conference.name)}_submissions.zip"'
-
+    response = HttpResponse(zip_buffer.getvalue(), content_type="application/zip")
+    filename = f"{slugify(conference.name)}_submissions.zip"
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    
     return response
 
 @login_required
