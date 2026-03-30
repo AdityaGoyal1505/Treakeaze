@@ -15,6 +15,7 @@ from django.core.mail import send_mail
 from django.conf import settings
 from django.utils.crypto import get_random_string
 from django.core.paginator import Paginator
+from cloudinary.utils import cloudinary_url
 from conference.forms import (
     ConferenceInfoForm, SubmissionSettingsForm, ReviewingSettingsForm,
     RebuttalSettingsForm, DecisionSettingsForm, EmailTemplateForm,
