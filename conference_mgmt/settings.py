@@ -99,6 +99,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'widget_tweaks',
+    'cloudinary_storage',
+    'cloudinary',
     'accounts',
     'conference',
     'dashboard',
@@ -292,8 +294,26 @@ EMAIL_SSL_CONTEXT.verify_mode = ssl.CERT_NONE
 # For production: Use SMTP with proper SSL handling
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# ==================== CLOUDINARY CONFIGURATION ====================
+import cloudinary
+
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'your_cloud_name'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY', 'your_api_key'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET', 'your_api_secret'),
+)
+
+# Use Cloudinary for file storage in production, local storage in development
+if os.environ.get('USE_CLOUDINARY', 'False') == 'True':
+    # Production: Use Cloudinary
+    DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+    MEDIA_URL = 'https://res.cloudinary.com/{}/image/upload/'.format(os.environ.get('CLOUDINARY_CLOUD_NAME'))
+    # No need for MEDIA_ROOT when using Cloudinary
+else:
+    # Development: Use local storage
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/accounts/login/'

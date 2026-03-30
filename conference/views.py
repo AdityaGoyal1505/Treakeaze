@@ -103,7 +103,7 @@ Paper Details:
 You can view and manage this submission through your conference dashboard.
 
 Best regards,
-Trekeaze Team"""
+TrekEaze Team"""
 
             send_mail(
                 subject=chair_subject,
@@ -804,7 +804,7 @@ def download_paper(request, paper_id):
 
 nav_items = [
     "Submissions", "Reviews", "Status", "PC", "Events",
-    "Email", "Administration", "Conference", "News", "Trekeaze"
+    "Email", "Administration", "Conference", "News", "TrekEaze"
 ]
 context = {
     # ... your existing context ...

@@ -216,7 +216,7 @@ def dashboard(request):
     # Add nav bar context for dashboard
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Submissions"
     # If user has at least one conference, use the first for dropdowns
@@ -284,7 +284,7 @@ def review_paper(request, paper_id):
     conference = review.paper.conference
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Reviews"
     review_dropdown_items = [
@@ -535,11 +535,11 @@ def pc_invite(request, conf_id):
                     
                     # Customize message based on action taken
                     if action_taken == 'created':
-                        password_info = f"\n\nA PaperSetu account has been created for you with username: {user.username}\nYou will receive a separate email to set your password."
+                        password_info = f"\n\nA Trekeaze account has been created for you with username: {user.username}\nYou will receive a separate email to set your password."
                     elif action_taken == 'exists_sent_reset':
-                        password_info = f"\n\nYou already have a PaperSetu account with username: {user.username}\nYou will receive a separate email to reset your password."
+                        password_info = f"\n\nYou already have a Trekeaze account with username: {user.username}\nYou will receive a separate email to reset your password."
                     else:
-                        password_info = f"\n\nYou already have a PaperSetu account with username: {user.username}"
+                        password_info = f"\n\nYou already have a Trekeaze account with username: {user.username}"
                     
                     body = f"""Dear {name},\n\nYou have been invited to serve as a Program Committee (PC) member for the conference \"{conference.name}\".{track_info}{password_info}\n\nPlease click the following link to accept or decline this invitation:\n{settings.SITE_DOMAIN}{reverse('dashboard:pc_invite_accept', args=[token])}\n\nBest regards,\n{request.user.get_full_name() or request.user.username}\nConference Chair"""
                     
@@ -932,7 +932,7 @@ def conference_submissions(request, conf_id):
     # Navigation items for the conference
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu", "Tracks"
+        "Email", "Administration", "Conference", "News", "Trekeaze", "Tracks"
     ]
     
     # Statistics (always based on all papers for this conference, not filtered)
@@ -1022,7 +1022,7 @@ def conference_details(request, conf_id):
     # Navigation items for the conference
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu", "Tracks"
+        "Email", "Administration", "Conference", "News", "Trekeaze", "Tracks"
     ]
     
     # Generate invite link for chairs
@@ -1139,7 +1139,7 @@ def conference_administration(request, conf_id):
     # Navigation items for the conference
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu", "Tracks"
+        "Email", "Administration", "Conference", "News", "Trekeaze", "Tracks"
     ]
     
     context = {
@@ -1198,7 +1198,7 @@ def conference_configuration(request, conf_id):
     # Navigation items for the conference
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu", "Tracks"
+        "Email", "Administration", "Conference", "News", "Trekeaze", "Tracks"
     ]
     context = {
         'conference': conference,
@@ -1316,7 +1316,7 @@ Status: Pending Review
 You will be notified once the application is reviewed.
 
 Best regards,
-PaperSetu Team''',
+Trekeaze Team''',
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[conference.contact_email],
                         fail_silently=True,
@@ -1901,7 +1901,7 @@ def all_submissions(request, conf_id):
     
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Reviews"
     review_dropdown_items = [
@@ -1966,7 +1966,7 @@ def assigned_to_me(request, conf_id):
     
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Reviews"
     review_dropdown_items = [
@@ -2305,7 +2305,7 @@ Conference Chair"""
     # Add nav bar context for chair dashboard
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Reviews"
     review_dropdown_items = [
@@ -2442,7 +2442,7 @@ Conference Chair/PC Member"""
     
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Reviews"
     review_dropdown_items = [
@@ -2521,7 +2521,7 @@ def by_pc_member(request, conf_id):
     
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Reviews"
     review_dropdown_items = [
@@ -2612,7 +2612,7 @@ def by_submission(request, conf_id):
     
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Reviews"
     review_dropdown_items = [
@@ -2652,7 +2652,7 @@ def delete_review(request, conf_id):
     if not (is_chair or user.is_staff or user.is_superuser):
         nav_items = [
             "Submissions", "Reviews", "Status", "PC", "Events",
-            "Email", "Administration", "Conference", "News", "papersetu"
+            "Email", "Administration", "Conference", "News", "Trekeaze"
         ]
         active_tab = "Reviews"
         review_dropdown_items = [
@@ -2703,7 +2703,7 @@ def delete_review(request, conf_id):
     
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Reviews"
     review_dropdown_items = [
@@ -2734,7 +2734,7 @@ def send_to_authors(request, conf_id):
     conference = get_object_or_404(Conference, id=conf_id)
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Reviews"
     review_dropdown_items = [
@@ -2907,7 +2907,7 @@ Conference Chair/PC Member"""
     
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Reviews"
     review_dropdown_items = [
@@ -2938,7 +2938,7 @@ def status_placeholder(request, conf_id):
     conference = get_object_or_404(Conference, id=conf_id)
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Status"
     review_dropdown_items = [
@@ -2963,7 +2963,7 @@ def events_placeholder(request, conf_id):
     conference = get_object_or_404(Conference, id=conf_id)
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Events"
     review_dropdown_items = [
@@ -2989,7 +2989,7 @@ def email_placeholder(request, conf_id):
     conference = get_object_or_404(Conference, id=conf_id)
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "Email"
     review_dropdown_items = [
@@ -3017,7 +3017,7 @@ def news_placeholder(request, conf_id):
     conference = get_object_or_404(Conference, id=conf_id)
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
     active_tab = "News"
     review_dropdown_items = [
@@ -3038,13 +3038,13 @@ def news_placeholder(request, conf_id):
         'review_dropdown_items': review_dropdown_items,
     })
 
-def papersetu_placeholder(request, conf_id):
+def Trekeaze_placeholder(request, conf_id):
     conference = get_object_or_404(Conference, id=conf_id)
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu"
+        "Email", "Administration", "Conference", "News", "Trekeaze"
     ]
-    active_tab = "papersetu"
+    active_tab = "Trekeaze"
     review_dropdown_items = [
         {'label': 'All submissions', 'url': reverse('dashboard:all_submissions', args=[conference.id])},
         {'label': 'Assigned to me', 'url': reverse('dashboard:assigned_to_me', args=[conference.id])},
@@ -3056,7 +3056,7 @@ def papersetu_placeholder(request, conf_id):
         {'label': 'Send to authors', 'url': reverse('dashboard:send_to_authors', args=[conference.id])},
         {'label': 'Missing reviews', 'url': reverse('dashboard:missing_reviews', args=[conference.id])},
     ]
-    return render(request, 'dashboard/papersetu_placeholder.html', {
+    return render(request, 'dashboard/Trekeaze_placeholder.html', {
         'conference': conference,
         'nav_items': nav_items,
         'active_tab': active_tab,
@@ -3708,23 +3708,42 @@ def delete_submissions_table(request, conf_id):
     
     return render(request, 'dashboard/partials/delete_submissions_table_body.html', {'author_list': author_list})
 
+import zipfile
+import os
+import requests
+from io import BytesIO
+from django.http import HttpResponse
+from django.contrib.auth.decorators import login_required
+from django.utils.text import slugify
+from .models import Conference, Paper
+
+
 @login_required
 def download_submissions(request, conf_id):
     conference = Conference.objects.get(id=conf_id)
     papers = Paper.objects.filter(conference=conference)
-    # Create a zip in memory
+
     zip_buffer = BytesIO()
+
     with zipfile.ZipFile(zip_buffer, 'w') as zip_file:
         for paper in papers:
             if paper.file:
-                filename = f"{slugify(paper.title)}_{paper.id}{os.path.splitext(paper.file.name)[-1]}"
-                file_path = paper.file.path
-                if os.path.exists(file_path):
-                    with open(file_path, 'rb') as f:
-                        zip_file.writestr(filename, f.read())
+                try:
+                    # Download file from Cloudinary
+                    response = requests.get(paper.file.url)
+
+                    if response.status_code == 200:
+                        filename = f"{slugify(paper.title)}_{paper.id}{os.path.splitext(paper.file.name)[-1]}"
+                        zip_file.writestr(filename, response.content)
+
+                except Exception as e:
+                    print(f"Error downloading paper {paper.id}: {e}")
+
     zip_buffer.seek(0)
+
     response = HttpResponse(zip_buffer, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{slugify(conference.name)}_submissions.zip"'
+
     return response
 
 @login_required
@@ -3796,7 +3815,7 @@ def view_paper_submission(request, conf_id, submission_id):
     # Navigation items for the conference
     nav_items = [
         "Submissions", "Reviews", "Status", "PC", "Events",
-        "Email", "Administration", "Conference", "News", "papersetu", "Tracks"
+        "Email", "Administration", "Conference", "News", "Trekeaze", "Tracks"
     ]
     
     context = {
@@ -4736,7 +4755,7 @@ class ConfigFeatureView(AdminFeatureBaseView):
         ]
         nav_items = [
             "Submissions", "Reviews", "Status", "PC", "Events",
-            "Email", "Administration", "Conference", "News", "papersetu", "Tracks"
+            "Email", "Administration", "Conference", "News", "Trekeaze", "Tracks"
         ]
         context = {
             'conference': conference,
@@ -4786,7 +4805,7 @@ class ConfigFeatureView(AdminFeatureBaseView):
         ]
         nav_items = [
             "Submissions", "Reviews", "Status", "PC", "Events",
-            "Email", "Administration", "Conference", "News", "papersetu", "Tracks"
+            "Email", "Administration", "Conference", "News", "Trekeaze", "Tracks"
         ]
         context = {
             'conference': conference,
@@ -4904,7 +4923,7 @@ class TracksFeatureView(AdminFeatureBaseView):
         # Navigation items for the conference
         nav_items = [
             "Submissions", "Reviews", "Status", "PC", "Events",
-            "Email", "Administration", "Conference", "News", "papersetu", "Tracks"
+            "Email", "Administration", "Conference", "News", "Trekeaze", "Tracks"
         ]
         
         context = {
