@@ -307,7 +307,6 @@ cloudinary.config(
 if os.environ.get('USE_CLOUDINARY', 'False') == 'True':
     # Production: Use Cloudinary
     DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.RawMediaCloudinaryStorage'
-    MEDIA_URL = 'https://res.cloudinary.com/{}/image/upload/'.format(os.environ.get('CLOUDINARY_CLOUD_NAME'))
     # No need for MEDIA_ROOT when using Cloudinary
 else:
     # Development: Use local storage
