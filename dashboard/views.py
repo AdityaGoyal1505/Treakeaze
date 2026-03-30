@@ -3715,7 +3715,6 @@ from io import BytesIO
 from django.http import HttpResponse
 from django.contrib.auth.decorators import login_required
 from django.utils.text import slugify
-from .models import Conference, Paper
 
 
 @login_required
