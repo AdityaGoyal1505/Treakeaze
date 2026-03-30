@@ -303,6 +303,12 @@ cloudinary.config(
     api_secret=os.environ.get('CLOUDINARY_API_SECRET', 'your_api_secret'),
 )
 
+CLOUDINARY_STORAGE = {
+    "CLOUD_NAME": os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    "API_KEY": os.environ.get("CLOUDINARY_API_KEY"),
+    "API_SECRET": os.environ.get("CLOUDINARY_API_SECRET"),
+}
+
 # Use Cloudinary for file storage in production, local storage in development
 if os.environ.get('USE_CLOUDINARY', 'False') == 'True':
     # Production: Use Cloudinary
