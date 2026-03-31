@@ -133,7 +133,7 @@ class Track(models.Model):
 class Paper(models.Model):
     title = models.CharField(max_length=255)
     abstract = models.TextField()
-    file = models.FileField(upload_to='papers/', storage=default_storage)
+    file = models.FileField(upload_to='media/papers/', storage=default_storage)
     author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='papers')
     conference = models.ForeignKey(Conference, on_delete=models.CASCADE, related_name='papers')
     submitted_at = models.DateTimeField(auto_now_add=True)
