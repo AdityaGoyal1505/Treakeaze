@@ -4,6 +4,32 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# ==================== CLOUDINARY CONFIGURATION ====================
+import cloudinary
+
+cloudinary.config(
+    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'your_cloud_name'),
+    api_key=os.environ.get('CLOUDINARY_API_KEY', 'your_api_key'),
+    api_secret=os.environ.get('CLOUDINARY_API_SECRET', 'your_api_secret'),
+)
+
+CLOUDINARY_STORAGE = {
+    "CLOUD_NAME": os.environ.get("CLOUDINARY_CLOUD_NAME"),
+    "API_KEY": os.environ.get("CLOUDINARY_API_KEY"),
+    "API_SECRET": os.environ.get("CLOUDINARY_API_SECRET"),
+}
+
+# Use Cloudinary for file storage in production, local storage in development
+# if os.environ.get('USE_CLOUDINARY', 'False') == 'True':
+    # Production: Use Cloudinary
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.RawMediaCloudinaryStorage'
+    # No need for MEDIA_ROOT when using Cloudinary
+# else:
+#     # Development: Use local storage
+#     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+#     MEDIA_URL = '/media/'
+#     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-please-change-this-key')
 
 DEBUG = os.environ.get('DEBUG', 'True') == 'True'
@@ -293,32 +319,6 @@ EMAIL_SSL_CONTEXT.verify_mode = ssl.CERT_NONE
 
 # For production: Use SMTP with proper SSL handling
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-
-# ==================== CLOUDINARY CONFIGURATION ====================
-import cloudinary
-
-cloudinary.config(
-    cloud_name=os.environ.get('CLOUDINARY_CLOUD_NAME', 'your_cloud_name'),
-    api_key=os.environ.get('CLOUDINARY_API_KEY', 'your_api_key'),
-    api_secret=os.environ.get('CLOUDINARY_API_SECRET', 'your_api_secret'),
-)
-
-CLOUDINARY_STORAGE = {
-    "CLOUD_NAME": os.environ.get("CLOUDINARY_CLOUD_NAME"),
-    "API_KEY": os.environ.get("CLOUDINARY_API_KEY"),
-    "API_SECRET": os.environ.get("CLOUDINARY_API_SECRET"),
-}
-
-# Use Cloudinary for file storage in production, local storage in development
-# if os.environ.get('USE_CLOUDINARY', 'False') == 'True':
-    # Production: Use Cloudinary
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.RawMediaCloudinaryStorage'
-    # No need for MEDIA_ROOT when using Cloudinary
-# else:
-#     # Development: Use local storage
-#     DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
-#     MEDIA_URL = '/media/'
-#     MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 LOGIN_REDIRECT_URL = '/'
 LOGIN_URL = '/accounts/login/'
