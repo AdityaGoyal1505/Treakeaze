@@ -20,19 +20,27 @@ CLOUDINARY_STORAGE = {
 }
 
 # Use Cloudinary for file storage in production, local storage in development
-# if not DEBUG:
-    # Production: Use Cloudinary with Django 5.2+ STORAGES API
+#UG_TEMP = os.environ.get('DEBUG', 'True') == 'True'
+
+#if not DEBUG_TEMP:
+    # Production: Use Cloudinary
 STORAGES = {
     "default": {
         "BACKEND": "cloudinary_storage.storage.RawMediaCloudinaryStorage",
     },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
 }
-    # MEDIA_URL = 'https://res.cloudinary.com/{}/image/upload/'.format(os.environ.get('CLOUDINARY_CLOUD_NAME'))
+#    MEDIA_URL = 'https://res.cloudinary.com/{}/image/upload/'.format(os.environ.get('CLOUDINARY_CLOUD_NAME'))
 # else:
 #     # Development: Use local storage
 #     STORAGES = {
 #         "default": {
 #             "BACKEND": "django.core.files.storage.FileSystemStorage",
+#         },
+#         "staticfiles": {
+#             "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
 #         },
 #     }
 #     MEDIA_URL = '/media/'
